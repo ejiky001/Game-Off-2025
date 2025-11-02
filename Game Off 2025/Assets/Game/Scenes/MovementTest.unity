@@ -269,6 +269,9 @@ MonoBehaviour:
   maxHealth: 10
   currentHealth: 0
   isAlive: 1
+  outOfCombatRegenDelay: 5
+  timeSinceLastDamage: 0
+  healthRegenRate: 3
   maxAmmo: 0
   currentAmmo: 0
   moveSpeed: 0
@@ -926,8 +929,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mouseSensitivity: 0.25
   maxHealth: 10
-  currentHealth: 10
+  currentHealth: 0
   isAlive: 1
+  outOfCombatRegenDelay: 5
+  timeSinceLastDamage: 0
+  healthRegenRate: 5
   maxAmmo: 100
   currentAmmo: 0
   moveSpeed: 10

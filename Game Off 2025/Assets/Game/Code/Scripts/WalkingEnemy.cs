@@ -28,7 +28,6 @@ public class WalkingEnemy : MonoBehaviour
         if (attackCoroutine == null)
         {
             attackCoroutine = StartCoroutine(AttackLoop());
-            Debug.Log($"Started attacking {player.name}");
         }
     }
 
@@ -40,7 +39,6 @@ public class WalkingEnemy : MonoBehaviour
         Player player = other.GetComponent<Player>();
         if (player == targetPlayer)
         {
-            Debug.Log($"Stopped attacking {player.name}");
             StopAttacking();
         }
     }
@@ -63,8 +61,7 @@ public class WalkingEnemy : MonoBehaviour
     {
         if (player != null && player.isAlive)
         {
-            player.currentHealth -= attackDamage;
-            Debug.Log($"Enemy attacked {player.name}! Remaining HP: {player.currentHealth}");
+            player.TakeDamage(attackDamage);
         }
     }
 

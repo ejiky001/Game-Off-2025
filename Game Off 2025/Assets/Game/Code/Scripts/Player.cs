@@ -1,5 +1,6 @@
 using UnityEngine;
-using UnityEngine.InputSystem; // New Input System namespace
+using UnityEngine.InputSystem; 
+using System.Collections;
 
 public class Player : MonoBehaviour
 {
@@ -12,11 +13,18 @@ public class Player : MonoBehaviour
     [SerializeField]
     private int maxHealth = 10;
     [SerializeField]
-    public int currentHealth;
+    private int currentHealth;
     [SerializeField]
     public bool isAlive = true;
+    [SerializeField]
+    private float outOfCombatRegenDelay = 5f;
+    [SerializeField]
+    private float timeSinceLastDamage = 0f;
+    [SerializeField]
+    private float healthRegenRate = 5f; // seconds per health point
 
-    //player ammo
+
+    //player ammof
     [SerializeField]
     private int maxAmmo = 100;
     [SerializeField]
@@ -82,6 +90,8 @@ public class Player : MonoBehaviour
         //set ammo
         currentAmmo = maxAmmo;
 
+        StartCoroutine(Regen());
+
 
     }
 
@@ -119,6 +129,7 @@ public class Player : MonoBehaviour
         {
             isAlive = false;
         }
+
     }
 
     void FixedUpdate()
@@ -250,6 +261,41 @@ public class Player : MonoBehaviour
         else if(!isAlive)
         {
             Debug.Log("You are dead and cannot interact");
+        }
+
+    }
+    public void TakeDamage(int amount)
+    {
+        if (!isAlive) return;
+        currentHealth -= amount;
+        timeSinceLastDamage = 0f; //reset regen timer
+        if (currentHealth <= 0)
+        {
+            currentHealth = 0;
+            isAlive = false;
+            Debug.Log("Player has died.");
+        }
+    }
+    private IEnumerator Regen()
+    {
+        while (true)
+        {
+            //regen if alive and missing hp
+            if (isAlive && currentHealth < maxHealth)
+            {
+                //time since last dmg
+                timeSinceLastDamage += Time.deltaTime;
+
+                //wait until out of combat delay
+                if (timeSinceLastDamage >= outOfCombatRegenDelay)
+                {
+                    currentHealth += 1;
+                    currentHealth = Mathf.Min(currentHealth, maxHealth);
+                    yield return new WaitForSeconds(healthRegenRate);
+                }
+               
+            }
+            yield return null;
         }
 
     }
