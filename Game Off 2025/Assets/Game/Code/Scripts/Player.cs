@@ -24,11 +24,19 @@ public class Player : MonoBehaviour
     private float healthRegenRate = 5f; // seconds per health point
 
 
-    //player ammof
+    //player ammo
     [SerializeField]
-    private int maxAmmo = 100;
+    private float maxAmmo = 100;
     [SerializeField]
-    private int currentAmmo;
+    private float currentAmmo;
+
+    //shooting
+    [SerializeField] private GameObject waterProjectilePrefab;
+    [SerializeField] private Transform shootPoint;
+    [SerializeField] private float shootForce = 5f;
+    [SerializeField] private float fireRate = 0.1f;
+    private Coroutine shootingCoroutine;
+    private bool isShooting = false;
 
     // Player movement
     private Rigidbody rb;
@@ -99,6 +107,8 @@ public class Player : MonoBehaviour
     {
         jumpAction.performed += Jump;
         interactAction.performed += Interact;
+        attackAction.performed += AttackStart;
+        attackAction.canceled += AttackStop;
 
     }
 
@@ -106,6 +116,8 @@ public class Player : MonoBehaviour
     {
         jumpAction.performed -= Jump;
         interactAction.performed -= Interact;
+        attackAction.performed -= AttackStart;
+        attackAction.canceled -= AttackStop;
 
     }
 
@@ -129,6 +141,8 @@ public class Player : MonoBehaviour
         {
             isAlive = false;
         }
+
+       
 
     }
 
@@ -299,7 +313,63 @@ public class Player : MonoBehaviour
         }
 
     }
-    void Shoot()
+    private void AttackStart(InputAction.CallbackContext ctx)
     {
+        if (!isAlive || currentAmmo <= 0) return;
+        if (shootingCoroutine == null)
+            shootingCoroutine = StartCoroutine(ShootWater());
     }
+
+    private void AttackStop(InputAction.CallbackContext ctx)
+    {
+        if (shootingCoroutine != null)
+        {
+            StopCoroutine(shootingCoroutine);
+            shootingCoroutine = null;
+        }
+    }
+    private IEnumerator ShootWater()
+    {
+        while (true)
+        {
+            if (currentAmmo <= 0)
+            {
+                currentAmmo = 0;
+                yield break;
+            }
+
+            currentAmmo -= 0.5f; // drains faster while spraying
+
+            // small random spread
+            Vector3 direction = shootPoint.forward;
+            direction += new Vector3(
+                Random.Range(-0.05f, 0.05f),
+                Random.Range(-0.05f, 0.05f),
+                Random.Range(-0.02f, 0.02f)
+            );
+
+            // spawn water blob slightly forward
+            Vector3 spawnPos = shootPoint.position + shootPoint.forward * 0.3f;
+
+            GameObject projectile = Instantiate(waterProjectilePrefab, spawnPos, Quaternion.LookRotation(direction));
+            Rigidbody rb = projectile.GetComponent<Rigidbody>();
+
+            if (rb != null)
+            {
+                // ignore collisions with player
+                foreach (var col in GetComponentsInChildren<Collider>())
+                {
+                    Physics.IgnoreCollision(projectile.GetComponent<Collider>(), col);
+                }
+
+                rb.linearVelocity = Vector3.zero;
+                rb.AddForce(direction.normalized * shootForce, ForceMode.Impulse);
+            }
+
+            yield return new WaitForSeconds(fireRate);
+        }
+    }
+
+
+
 }

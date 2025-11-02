@@ -12,11 +12,11 @@ TagManager:
   - Water
   - UI
   - FireHydrant
-  - Player
+  - player
   - Enemy
-  - 
-  - 
-  - 
+  - box
+  - button
+  - water
   - 
   - 
   - 
