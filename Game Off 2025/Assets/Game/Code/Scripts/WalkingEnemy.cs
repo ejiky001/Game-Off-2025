@@ -74,4 +74,18 @@ public class WalkingEnemy : MonoBehaviour
         }
         targetPlayer = null;
     }
+    public void TakeDamage(float amount)
+    {
+        health -= amount;
+        if (health <= 0)
+        {
+            Die();
+        }
+    }
+
+    private void Die()
+    {
+        Destroy(gameObject); 
+    }
+
 }
