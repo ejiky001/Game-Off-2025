@@ -8,6 +8,20 @@ public class Player : MonoBehaviour
     private float verticalRotation = 0f;
     private Transform cameraTransform;
 
+    //Player health
+    [SerializeField]
+    private int maxHealth = 10;
+    [SerializeField]
+    private int currentHealth;
+    [SerializeField]
+    private bool isAlive = true;
+
+    //player ammo
+    [SerializeField]
+    private int maxAmmo = 100;
+    [SerializeField]
+    private int currentAmmo;
+
     // Player movement
     private Rigidbody rb;
     public float moveSpeed = 10f;
@@ -19,6 +33,9 @@ public class Player : MonoBehaviour
     public float ascendMultiplier = 2f;
     private bool isGrounded = true;
     public LayerMask groundLayer;
+    public LayerMask playerLayer;
+    public LayerMask HydrantLayer;
+
     private float groundCheckTimer = 0f;
     private float groundCheckInterval = 0.2f;
     private float playerHeight;
@@ -30,6 +47,11 @@ public class Player : MonoBehaviour
     private InputAction lookAction;
     private InputAction jumpAction;
     private InputAction interactAction;
+    private InputAction attackAction;
+
+    //interactable
+    private bool onHydrant = false;
+
 
     void Awake()
     {
@@ -46,27 +68,41 @@ public class Player : MonoBehaviour
         lookAction = playerInput.actions["Look"];
         jumpAction = playerInput.actions["Jump"];
         interactAction = playerInput.actions["Interact"];
+        attackAction = playerInput.actions["Attack"];
+        
 
         //hidden mouse if needed -- comment before build if needed
-        Cursor.lockState = CursorLockMode.Locked; 
+        Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+
+        //set health
+        currentHealth = maxHealth;
+
+        //set ammo
+        currentAmmo = maxAmmo;
+
 
     }
 
     void OnEnable()
     {
-        jumpAction.performed += OnJump;
+        jumpAction.performed += Jump;
+        interactAction.performed += Interact;
+
     }
 
     void OnDisable()
     {
-        jumpAction.performed -= OnJump;
+        jumpAction.performed -= Jump;
+        interactAction.performed -= Interact;
+
     }
 
     void Update()
     {
         moveInput = moveAction.ReadValue<Vector2>();
         RotateCamera();
+       
 
         // Ground check with timer
         if (!isGrounded && groundCheckTimer <= 0f)
@@ -78,28 +114,40 @@ public class Player : MonoBehaviour
         {
             groundCheckTimer -= Time.deltaTime;
         }
+        if(currentHealth <= 0)
+        {
+            isAlive = false;
+        }
     }
 
     void FixedUpdate()
     {
-        Move();
-        ApplyJump();
+        if (isAlive)
+        {
+            Move();
+            ApplyJump();
+        }
     }
 
     void Move()
     {
-        Vector3 movement = (transform.right * moveInput.x + transform.forward * moveInput.y).normalized;
-        Vector3 targetVelocity = movement * moveSpeed;
+       
 
-        Vector3 velocity = rb.linearVelocity;
-        velocity.x = targetVelocity.x;
-        velocity.z = targetVelocity.z;
-        rb.linearVelocity = velocity;
+            Vector3 movement = (transform.right * moveInput.x + transform.forward * moveInput.y).normalized;
+            Vector3 targetVelocity = movement * moveSpeed;
 
-        if (isGrounded && moveInput == Vector2.zero)
-        {
-            rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
-        }
+            Vector3 velocity = rb.linearVelocity;
+            velocity.x = targetVelocity.x;
+            velocity.z = targetVelocity.z;
+            rb.linearVelocity = velocity;
+
+            if (isGrounded && moveInput == Vector2.zero)
+            {
+                rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
+            }
+
+
+        
     }
 
     void RotateCamera()
@@ -115,9 +163,9 @@ public class Player : MonoBehaviour
         cameraTransform.localEulerAngles = new Vector3(verticalRotation, 0f, 0f);
     }
 
-    void OnJump(InputAction.CallbackContext context)
+    void Jump(InputAction.CallbackContext context)
     {
-        if (isGrounded)
+        if (isGrounded && isAlive)
         {
             isGrounded = false;
             groundCheckTimer = groundCheckInterval;
@@ -127,6 +175,7 @@ public class Player : MonoBehaviour
 
     void ApplyJump()
     {
+
         if (rb.linearVelocity.y < 0)
         {
             rb.linearVelocity += Vector3.up * Physics.gravity.y * fallMultiplier * Time.fixedDeltaTime;
@@ -135,5 +184,41 @@ public class Player : MonoBehaviour
         {
             rb.linearVelocity += Vector3.up * Physics.gravity.y * ascendMultiplier * Time.fixedDeltaTime;
         }
+    }
+    private void OnTriggerEnter(Collider other)
+    {
+        if (((1 << other.gameObject.layer) & HydrantLayer) != 0)
+        {
+            onHydrant = true;
+        }
+    }
+    private void OnTriggerExit(Collider other)
+    {
+        if (((1 << other.gameObject.layer) & HydrantLayer) != 0)
+        {
+            onHydrant = false;
+        }
+    }
+
+
+    
+    void Interact(InputAction.CallbackContext context)
+    {
+        if (onHydrant && currentAmmo < maxAmmo && isAlive)
+        {
+            Debug.Log("At hydrant and reloading");
+            //reload ammo
+            currentAmmo = maxAmmo;
+        }
+        else if (isAlive)
+        {
+            Debug.Log("Not at hydrant or ammo full");
+            //check if player is at hydrant
+
+        }
+        void Shoot()
+        {
+        }
+       
     }
 }
