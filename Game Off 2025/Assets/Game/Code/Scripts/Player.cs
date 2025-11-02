@@ -4,7 +4,7 @@ using UnityEngine.InputSystem; // New Input System namespace
 public class Player : MonoBehaviour
 {
     // Camera controls
-    public float mouseSensitivity = 0.5f;
+    public float mouseSensitivity = 0.25f;
     private float verticalRotation = 0f;
     private Transform cameraTransform;
 
@@ -14,7 +14,7 @@ public class Player : MonoBehaviour
     [SerializeField]
     private int currentHealth;
     [SerializeField]
-    private bool isAlive = true;
+    public bool isAlive = true;
 
     //player ammo
     [SerializeField]
@@ -51,6 +51,7 @@ public class Player : MonoBehaviour
 
     //interactable
     private bool onHydrant = false;
+    private bool onPlayer = false;
 
 
     void Awake()
@@ -191,12 +192,21 @@ public class Player : MonoBehaviour
         {
             onHydrant = true;
         }
+        if (((1 << other.gameObject.layer) & playerLayer) != 0)
+        {
+            onPlayer = true;
+        }
+
     }
     private void OnTriggerExit(Collider other)
     {
         if (((1 << other.gameObject.layer) & HydrantLayer) != 0)
         {
             onHydrant = false;
+        }
+        if (((1 << other.gameObject.layer) & playerLayer) != 0)
+        {
+            onPlayer = false;
         }
     }
 
@@ -210,15 +220,40 @@ public class Player : MonoBehaviour
             //reload ammo
             currentAmmo = maxAmmo;
         }
-        else if (isAlive)
-        {
-            Debug.Log("Not at hydrant or ammo full");
-            //check if player is at hydrant
 
-        }
-        void Shoot()
+
+        if (onPlayer && isAlive)
         {
+            //find players nearby
+            Collider[] nearbyPlayers = Physics.OverlapSphere(transform.position, 2f, playerLayer);
+
+            foreach (Collider col in nearbyPlayers)
+            {
+                //ignore your own collider
+                if (col.gameObject == this.gameObject)
+                {
+                    continue;
+                }
+
+                Player otherPlayer = col.GetComponent<Player>();
+                if (otherPlayer != null && !otherPlayer.isAlive)
+                {
+                    Debug.Log("Reviving player");
+                    //revive player with half hp
+                    otherPlayer.currentHealth = otherPlayer.maxHealth / 2;
+                    otherPlayer.isAlive = true;
+                    break; //only revive one player
+                }
+
+            }
         }
-       
+        else if(!isAlive)
+        {
+            Debug.Log("You are dead and cannot interact");
+        }
+
+    }
+    void Shoot()
+    {
     }
 }
