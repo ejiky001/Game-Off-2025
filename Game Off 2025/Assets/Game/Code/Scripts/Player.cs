@@ -12,7 +12,7 @@ public class Player : MonoBehaviour
     [SerializeField]
     private int maxHealth = 10;
     [SerializeField]
-    private int currentHealth;
+    public int currentHealth;
     [SerializeField]
     public bool isAlive = true;
 
