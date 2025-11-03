@@ -16,6 +16,8 @@ GameObject:
   - component: {fileID: 8111661881938815270}
   - component: {fileID: 738419332189808809}
   - component: {fileID: 381077019700007185}
+  - component: {fileID: 5791744412664230588}
+  - component: {fileID: -2288106728938229753}
   m_Layer: 0
   m_Name: PlayerPrefab
   m_TagString: Untagged
@@ -124,7 +126,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 2879881965
+  GlobalObjectIdHash: 2773447740
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -198,6 +200,32 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   Speed: 5
 --- !u!114 &381077019700007185
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7360727321633620514}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac35373b42abe46ea8f7cab1a1c353f0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &5791744412664230588
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7360727321633620514}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac35373b42abe46ea8f7cab1a1c353f0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &-2288106728938229753
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
