@@ -1002,7 +1002,7 @@ MonoBehaviour:
   waterProjectilePrefab: {fileID: 4991801947115010173, guid: 0550e19bbac111f40ab79a8fa30f6883, type: 3}
   shootPoint: {fileID: 449013232}
   shootForce: 5
-  fireRate: 0.1
+  fireRate: 0.05
   moveSpeed: 10
   jumpForce: 10
   fallMultiplier: 2.5
