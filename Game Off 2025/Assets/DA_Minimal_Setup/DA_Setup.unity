@@ -332,6 +332,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
+  Health:
+    m_InternalValue: 10
   mouseSensitivity: 0
   maxHealth: 10
   currentHealth: 0
@@ -1145,6 +1147,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6217813609282245309, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
+      propertyPath: Ownership
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 6217813609282245309, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 269200041
       objectReference: {fileID: 0}
@@ -1168,6 +1174,10 @@ PrefabInstance:
     - target: {fileID: 944409570124378260, guid: 137f5c30840b9444c9eee61e70fadd22, type: 3}
       propertyPath: m_Name
       value: enemy
+      objectReference: {fileID: 0}
+    - target: {fileID: 1515867825563277443, guid: 137f5c30840b9444c9eee61e70fadd22, type: 3}
+      propertyPath: Ownership
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 1515867825563277443, guid: 137f5c30840b9444c9eee61e70fadd22, type: 3}
       propertyPath: GlobalObjectIdHash
@@ -1230,6 +1240,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 4756184457167167762, guid: 8f0e1297ef3f1b04ca9edbcc4f34c301, type: 3}
+      propertyPath: Ownership
+      value: 3
+      objectReference: {fileID: 0}
     - target: {fileID: 4756184457167167762, guid: 8f0e1297ef3f1b04ca9edbcc4f34c301, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 2940341310
@@ -1298,6 +1312,10 @@ PrefabInstance:
     - target: {fileID: 2336327648641973588, guid: e4662eb052b236b49bcd8f2f878cf47e, type: 3}
       propertyPath: m_Name
       value: FireHydrant
+      objectReference: {fileID: 0}
+    - target: {fileID: 4934060556566256396, guid: e4662eb052b236b49bcd8f2f878cf47e, type: 3}
+      propertyPath: Ownership
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 4934060556566256396, guid: e4662eb052b236b49bcd8f2f878cf47e, type: 3}
       propertyPath: GlobalObjectIdHash

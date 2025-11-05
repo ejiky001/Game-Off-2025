@@ -19,6 +19,8 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         private void OnTriggerEnter(Collider other)
         {
+            if (!IsServer) return;
+
             if (((1 << other.gameObject.layer) & playerLayer) == 0)
                 return;
 
@@ -27,12 +29,10 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
             targetPlayer = player;
 
-            // Start attacking if not already
             if (attackCoroutine == null)
-            {
                 attackCoroutine = StartCoroutine(AttackLoop());
-            }
         }
+
 
         private void OnTriggerExit(Collider other)
         {
@@ -64,7 +64,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         {
             if (player != null && player.isAlive)
             {
-                player.TakeDamage(attackDamage);
+                player.TakeDamageServerRpc(attackDamage);
             }
         }
 
@@ -79,17 +79,21 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         }
         public void TakeDamage(float amount)
         {
+            if (!IsServer) return;
+
             health -= amount;
             if (health <= 0)
-            {
                 Die();
-            }
         }
+
 
         private void Die()
         {
+            if (!IsServer) return;
             Destroy(gameObject);
         }
 
+
     }
+
 }

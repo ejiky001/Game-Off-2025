@@ -7,6 +7,8 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 {
     public class Player : NetworkBehaviour
     {
+        public NetworkVariable<int> Health = new NetworkVariable<int>(10, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
         // --- Camera controls ---
         public float mouseSensitivity = 0.25f;
         private float verticalRotation = 0f;
@@ -255,18 +257,22 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             }
         }
 
-        public void TakeDamage(int amount)
+        [ServerRpc]
+        public void TakeDamageServerRpc(int amount)
         {
             if (!isAlive) return;
-            currentHealth -= amount;
+
+            Health.Value -= amount;
             timeSinceLastDamage = 0f;
-            if (currentHealth <= 0)
+
+            if (Health.Value <= 0)
             {
-                currentHealth = 0;
+                Health.Value = 0;
                 isAlive = false;
-                Debug.Log("Player has died.");
+                Debug.Log($"{OwnerClientId} has died.");
             }
         }
+
 
         private IEnumerator Regen()
         {
@@ -339,7 +345,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
             if (waterProjectilePrefab == null)
             {
-                Debug.LogError("❌ waterProjectilePrefab is not assigned!");
+                Debug.LogError(" waterProjectilePrefab is not assigned!");
                 return;
             }
 
@@ -348,7 +354,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
             if (netObj == null)
             {
-                Debug.LogError("❌ The projectile prefab is missing a NetworkObject component!");
+                Debug.LogError(" The projectile prefab is missing a NetworkObject component!");
                 Destroy(projectile);
                 return;
             }

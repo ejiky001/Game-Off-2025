@@ -1,6 +1,11 @@
 using UnityEngine;
+using Unity.Netcode;
 
-public class Button : MonoBehaviour
+namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 {
-    public bool pressed = false;
+
+    public class Button : NetworkBehaviour
+    {
+        public bool pressed = false;
+    }
 }
