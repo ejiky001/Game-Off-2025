@@ -184,6 +184,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
+  Health:
+    m_InternalValue: 10
   mouseSensitivity: 0.25
   maxHealth: 10
   currentHealth: 0
@@ -206,7 +208,7 @@ MonoBehaviour:
     m_Bits: 8
   playerLayer:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 128
   HydrantLayer:
     serializedVersion: 2
     m_Bits: 64
