@@ -13,12 +13,13 @@ GameObject:
   - component: {fileID: 3991384451665810261}
   - component: {fileID: 2249895125132549364}
   - component: {fileID: 3882713883801240102}
-  - component: {fileID: 7404229161808147489}
   - component: {fileID: 676281185234985619}
+  - component: {fileID: 7404229161808147489}
   - component: {fileID: -6680016922355127891}
   - component: {fileID: -3521348135526535721}
+  - component: {fileID: 2001485843402548140}
   m_Layer: 11
-  m_Name: Sphere
+  m_Name: water
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -140,37 +141,6 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 1
---- !u!114 &7404229161808147489
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4991801947115010173}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4c00000fe9aebba4399e662ad8627489, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  lifetime: 3
-  damageToEnemy: 0.5
-  pushForceToEnemyOrBox: 0.5
-  pushForceToPlayer: 10
-  enemyLayer:
-    serializedVersion: 2
-    m_Bits: 256
-  playerLayer:
-    serializedVersion: 2
-    m_Bits: 128
-  boxLayer:
-    serializedVersion: 2
-    m_Bits: 512
-  buttonLayer:
-    serializedVersion: 2
-    m_Bits: 1024
-  waterLayer:
-    serializedVersion: 2
-    m_Bits: 2048
 --- !u!114 &676281185234985619
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -196,6 +166,38 @@ MonoBehaviour:
   AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
+--- !u!114 &7404229161808147489
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4991801947115010173}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4c00000fe9aebba4399e662ad8627489, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+  lifetime: 3
+  damageToEnemy: 0.5
+  pushForceToEnemyOrBox: 0.5
+  pushForceToPlayer: 10
+  enemyLayer:
+    serializedVersion: 2
+    m_Bits: 256
+  playerLayer:
+    serializedVersion: 2
+    m_Bits: 128
+  boxLayer:
+    serializedVersion: 2
+    m_Bits: 512
+  buttonLayer:
+    serializedVersion: 2
+    m_Bits: 1024
+  waterLayer:
+    serializedVersion: 2
+    m_Bits: 2048
 --- !u!114 &-6680016922355127891
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -255,3 +257,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &2001485843402548140
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4991801947115010173}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6c0be61502bb534f922ebb746851216, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+  NetworkRigidbodyBaseExpanded: 0
+  UseRigidBodyForMotion: 0
+  AutoUpdateKinematicState: 1
+  AutoSetKinematicOnDespawn: 1

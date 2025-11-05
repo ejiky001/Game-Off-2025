@@ -1,92 +1,95 @@
-using UnityEngine;
 using System.Collections;
-using Unity.Multiplayer.Center.NetcodeForGameObjects;
+using Unity.Netcode;
+using UnityEngine;
 
-public class WalkingEnemy : MonoBehaviour
+namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 {
-    [SerializeField] private float health = 5f;
-    [SerializeField] private float moveSpeed = 2f;
-    [SerializeField] private int attackDamage = 1;
-
-    [SerializeField] private float attackDelay = 3f; // seconds between attacks
-
-    public LayerMask playerLayer;
-
-    private Player targetPlayer;
-    private Coroutine attackCoroutine;
-
-    private void OnTriggerEnter(Collider other)
+    public class WalkingEnemy : NetworkBehaviour
     {
-        if (((1 << other.gameObject.layer) & playerLayer) == 0)
-            return;
+        [SerializeField] private float health = 5f;
+        [SerializeField] private float moveSpeed = 2f;
+        [SerializeField] private int attackDamage = 1;
 
-        Player player = other.GetComponent<Player>();
-        if (player == null) return;
+        [SerializeField] private float attackDelay = 3f; // seconds between attacks
 
-        targetPlayer = player;
+        public LayerMask playerLayer;
 
-        // Start attacking if not already
-        if (attackCoroutine == null)
+        private Player targetPlayer;
+        private Coroutine attackCoroutine;
+
+        private void OnTriggerEnter(Collider other)
         {
-            attackCoroutine = StartCoroutine(AttackLoop());
+            if (((1 << other.gameObject.layer) & playerLayer) == 0)
+                return;
+
+            Player player = other.GetComponent<Player>();
+            if (player == null) return;
+
+            targetPlayer = player;
+
+            // Start attacking if not already
+            if (attackCoroutine == null)
+            {
+                attackCoroutine = StartCoroutine(AttackLoop());
+            }
         }
-    }
 
-    private void OnTriggerExit(Collider other)
-    {
-        if (((1 << other.gameObject.layer) & playerLayer) == 0)
-            return;
-
-        Player player = other.GetComponent<Player>();
-        if (player == targetPlayer)
+        private void OnTriggerExit(Collider other)
         {
+            if (((1 << other.gameObject.layer) & playerLayer) == 0)
+                return;
+
+            Player player = other.GetComponent<Player>();
+            if (player == targetPlayer)
+            {
+                StopAttacking();
+            }
+        }
+
+        private IEnumerator AttackLoop()
+        {
+            //delay before first attack
+            yield return new WaitForSeconds(1f);
+
+            while (targetPlayer != null && targetPlayer.isAlive)
+            {
+                Attack(targetPlayer);
+                yield return new WaitForSeconds(attackDelay);
+            }
+
             StopAttacking();
         }
-    }
 
-    private IEnumerator AttackLoop()
-    {
-        //delay before first attack
-        yield return new WaitForSeconds(1f);
-
-        while (targetPlayer != null && targetPlayer.isAlive)
+        private void Attack(Player player)
         {
-            Attack(targetPlayer);
-            yield return new WaitForSeconds(attackDelay);
+            if (player != null && player.isAlive)
+            {
+                player.TakeDamage(attackDamage);
+            }
         }
 
-        StopAttacking();
-    }
-
-    private void Attack(Player player)
-    {
-        if (player != null && player.isAlive)
+        private void StopAttacking()
         {
-            player.TakeDamage(attackDamage);
+            if (attackCoroutine != null)
+            {
+                StopCoroutine(attackCoroutine);
+                attackCoroutine = null;
+            }
+            targetPlayer = null;
         }
-    }
-
-    private void StopAttacking()
-    {
-        if (attackCoroutine != null)
+        public void TakeDamage(float amount)
         {
-            StopCoroutine(attackCoroutine);
-            attackCoroutine = null;
+            health -= amount;
+            if (health <= 0)
+            {
+                Die();
+            }
         }
-        targetPlayer = null;
-    }
-    public void TakeDamage(float amount)
-    {
-        health -= amount;
-        if (health <= 0)
+
+        private void Die()
         {
-            Die();
+            Destroy(gameObject);
         }
-    }
 
-    private void Die()
-    {
-        Destroy(gameObject); 
     }
-
 }

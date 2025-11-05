@@ -19,6 +19,7 @@ GameObject:
   - component: {fileID: 498240628338147072}
   - component: {fileID: 5885819795520344926}
   - component: {fileID: 5361958351667128218}
+  - component: {fileID: 8304811627162342396}
   m_Layer: 7
   m_Name: Player
   m_TagString: Player
@@ -210,6 +211,8 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 64
   raycastDistance: 1.2
+  playerCamera: {fileID: 2435745654207090741}
+  audioListener: {fileID: 6571228991956225365}
 --- !u!114 &8426239336953977695
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -380,6 +383,23 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
+--- !u!114 &8304811627162342396
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1361008734774746485}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6c0be61502bb534f922ebb746851216, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+  NetworkRigidbodyBaseExpanded: 0
+  UseRigidBodyForMotion: 0
+  AutoUpdateKinematicState: 1
+  AutoSetKinematicOnDespawn: 1
 --- !u!1 &1897834317579515515
 GameObject:
   m_ObjectHideFlags: 0
@@ -424,6 +444,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a83c1319551e05c469312e26b4cbd019, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
   damagePerSecond: 1
   pushForce: 2
   playerLayer:

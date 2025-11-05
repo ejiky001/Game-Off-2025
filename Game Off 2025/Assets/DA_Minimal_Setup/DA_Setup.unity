@@ -234,23 +234,14 @@ GameObject:
   m_Component:
   - component: {fileID: 711244942}
   - component: {fileID: 711244941}
-  - component: {fileID: 711244940}
   - component: {fileID: 711244943}
   m_Layer: 0
-  m_Name: Main Camera
+  m_Name: menucam
   m_TagString: MainCamera
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!81 &711244940
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 711244939}
-  m_Enabled: 1
 --- !u!20 &711244941
 Camera:
   m_ObjectHideFlags: 0
@@ -373,7 +364,7 @@ GameObject:
   - component: {fileID: 840594887}
   - component: {fileID: 840594886}
   - component: {fileID: 840594885}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Floor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
