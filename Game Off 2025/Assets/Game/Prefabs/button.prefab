@@ -12,8 +12,8 @@ GameObject:
   - component: {fileID: 3108361531038948608}
   - component: {fileID: 5312551339175910331}
   - component: {fileID: 970943095778332651}
-  - component: {fileID: 8541502335584114871}
   - component: {fileID: 6217813609282245309}
+  - component: {fileID: 8541502335584114871}
   m_Layer: 10
   m_Name: button
   m_TagString: Untagged
@@ -110,19 +110,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &8541502335584114871
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2799478566562796822}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 661dba208ca3c224a949e2b7a49d3187, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  pressed: 0
 --- !u!114 &6217813609282245309
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -135,10 +122,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 4046736739
+  GlobalObjectIdHash: 3943581760
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
-  Ownership: 1
+  Ownership: 3
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
   ActiveSceneSynchronization: 0
@@ -148,3 +135,17 @@ MonoBehaviour:
   AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
+--- !u!114 &8541502335584114871
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2799478566562796822}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 661dba208ca3c224a949e2b7a49d3187, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+  pressed: 0
