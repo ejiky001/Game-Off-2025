@@ -64,9 +64,11 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         {
             if (player != null && player.isAlive)
             {
+                Debug.Log("Enemy attacking player calling TakeDamageServerRpc()");
                 player.TakeDamageServerRpc(attackDamage);
             }
         }
+
 
         private void StopAttacking()
         {

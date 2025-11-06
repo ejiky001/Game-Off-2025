@@ -107,6 +107,11 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
             // Enable input and camera for local player
             playerInput.enabled = true;
+
+            Health.OnValueChanged += (oldVal, newVal) =>
+            {
+                currentHealth = newVal;   
+            };
             if (playerCamera != null) playerCamera.enabled = true;
             if (audioListener != null) audioListener.enabled = true;
 
@@ -151,8 +156,9 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 groundCheckTimer -= Time.deltaTime;
             }
 
-            if (currentHealth <= 0)
+            if (Health.Value <= 0)
                 isAlive = false;
+
         }
 
         void FixedUpdate()
@@ -257,40 +263,50 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             }
         }
 
-        [ServerRpc]
+        [ServerRpc(RequireOwnership = false)]
         public void TakeDamageServerRpc(int amount)
         {
             if (!isAlive) return;
 
-            Health.Value -= amount;
+            Debug.Log($"[SERVER] {OwnerClientId} took {amount} damage");
+
+            Health.Value -= amount;       // decrement NETWORK health
+            currentHealth = Health.Value; // sync local inspector value
             timeSinceLastDamage = 0f;
 
             if (Health.Value <= 0)
             {
                 Health.Value = 0;
+                currentHealth = 0;
                 isAlive = false;
                 Debug.Log($"{OwnerClientId} has died.");
             }
         }
 
 
+
+
         private IEnumerator Regen()
         {
             while (true)
             {
-                if (isAlive && currentHealth < maxHealth)
+                if (isAlive && Health.Value < maxHealth)
                 {
                     timeSinceLastDamage += Time.deltaTime;
+
                     if (timeSinceLastDamage >= outOfCombatRegenDelay)
                     {
-                        currentHealth += 1;
-                        currentHealth = Mathf.Min(currentHealth, maxHealth);
+                        Health.Value++;
+                        currentHealth = Health.Value;
                         yield return new WaitForSeconds(healthRegenRate);
                     }
                 }
+
                 yield return null;
             }
         }
+
+
 
         #region Shooting System (Authoritative Server Version)
 
@@ -334,7 +350,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
                 Vector3 spawnPos = shootPoint.position + shootPoint.forward * 0.3f;
 
-                // 🔥 Call the server to spawn the projectile
+                // Call the server to spawn the projectile
                 SpawnProjectileServerRpc(spawnPos, direction);
 
                 yield return new WaitForSeconds(fireRate);
@@ -347,7 +363,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             GameObject projectile = Instantiate(waterProjectilePrefab, spawnPos, Quaternion.LookRotation(direction));
             NetworkObject netObj = projectile.GetComponent<NetworkObject>();
 
-            // 🚀 Force SERVER to own it — critical line
+            //  Force SERVER to own it — critical line
             netObj.SpawnWithOwnership(NetworkManager.ServerClientId);
 
             Rigidbody rbProj = projectile.GetComponent<Rigidbody>();
