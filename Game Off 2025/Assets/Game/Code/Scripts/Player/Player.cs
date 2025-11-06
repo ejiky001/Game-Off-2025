@@ -329,7 +329,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 );
 
                 Vector3 spawnPos = shootPoint.position + shootPoint.forward * 0.3f;
-                SpawnProjectile(spawnPos, direction);
+                SpawnProjectileServerRpc(spawnPos, direction);
 
                 yield return new WaitForSeconds(fireRate);
             }
@@ -337,37 +337,25 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         private void SpawnProjectile(Vector3 spawnPos, Vector3 direction)
         {
-            if (!IsSpawned || !HasAuthority)
-            {
-                Debug.LogWarning("Skipping spawn: no authority");
-                return;
-            }
+            // Instead of spawning here, call the server
+            SpawnProjectileServerRpc(spawnPos, direction);
+        }
 
-            if (waterProjectilePrefab == null)
-            {
-                Debug.LogError(" waterProjectilePrefab is not assigned!");
-                return;
-            }
-
+        [ServerRpc(RequireOwnership = false)]
+        private void SpawnProjectileServerRpc(Vector3 spawnPos, Vector3 direction, ServerRpcParams rpcParams = default)
+        {
             GameObject projectile = Instantiate(waterProjectilePrefab, spawnPos, Quaternion.LookRotation(direction));
             NetworkObject netObj = projectile.GetComponent<NetworkObject>();
 
-            if (netObj == null)
-            {
-                Debug.LogError(" The projectile prefab is missing a NetworkObject component!");
-                Destroy(projectile);
-                return;
-            }
-
-            netObj.Spawn(true);
+            //  Force server ownership (instead of inheriting the caller)
+            netObj.SpawnWithOwnership(NetworkManager.ServerClientId);
 
             Rigidbody rbProj = projectile.GetComponent<Rigidbody>();
-            if (rbProj != null)
-            {
-                rbProj.linearVelocity = Vector3.zero;
-                rbProj.AddForce(direction.normalized * shootForce, ForceMode.Impulse);
-            }
+            rbProj.linearVelocity = Vector3.zero;
+            rbProj.AddForce(direction.normalized * shootForce, ForceMode.Impulse);
         }
+
+
         #endregion
     }
 }
