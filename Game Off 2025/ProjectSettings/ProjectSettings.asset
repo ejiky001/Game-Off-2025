@@ -919,13 +919,13 @@ PlayerSettings:
   qnxGraphicConfPath: 
   apiCompatibilityLevel: 6
   captureStartupLogs: {}
-  activeInputHandler: 1
+  activeInputHandler: 2
   windowsGamepadBackendHint: 0
-  cloudProjectId: d8cc96f8-3713-4e3b-81c9-aa66fb644781
+  cloudProjectId: bd9ea979-e9fa-40e6-aadd-efca85bf192e
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
   projectName: Game Off 2025
-  organizationId: ejiky001
+  organizationId: nikoxjimi
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
   hmiLoadingImage: {fileID: 0}
