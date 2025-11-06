@@ -96,38 +96,32 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-
-            if (!IsOwner)
+            if (IsOwner)
             {
-                // Disable camera and audio for remote players
+                playerInput.enabled = true;
+
+                if (playerCamera != null) playerCamera.enabled = true;
+                if (audioListener != null) audioListener.enabled = true;
+
+                moveAction = playerInput.actions["Move"];
+                lookAction = playerInput.actions["Look"];
+                jumpAction = playerInput.actions["Jump"];
+                interactAction = playerInput.actions["Interact"];
+                attackAction = playerInput.actions["Attack"];
+
+                jumpAction.performed += Jump;
+                interactAction.performed += Interact;
+                attackAction.performed += AttackStart;
+                attackAction.canceled += AttackStop;
+            }
+            else
+            {
                 if (playerCamera != null) playerCamera.enabled = false;
                 if (audioListener != null) audioListener.enabled = false;
-                return;
             }
 
-            // Enable input and camera for local player
-            playerInput.enabled = true;
-
-            Health.OnValueChanged += (oldVal, newVal) =>
-            {
-                currentHealth = newVal;   
-            };
-            if (playerCamera != null) playerCamera.enabled = true;
-            if (audioListener != null) audioListener.enabled = true;
-
-            moveAction = playerInput.actions["Move"];
-            lookAction = playerInput.actions["Look"];
-            jumpAction = playerInput.actions["Jump"];
-            interactAction = playerInput.actions["Interact"];
-            attackAction = playerInput.actions["Attack"];
-
-            jumpAction.performed += Jump;
-            interactAction.performed += Interact;
-            attackAction.performed += AttackStart;
-            attackAction.canceled += AttackStop;
         }
-
-        void OnDisable()
+            void OnDisable()
         {
             if (jumpAction != null) jumpAction.performed -= Jump;
             if (interactAction != null) interactAction.performed -= Interact;
