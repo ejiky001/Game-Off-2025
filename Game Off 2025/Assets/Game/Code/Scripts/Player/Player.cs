@@ -138,30 +138,24 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         void Update()
         {
-            if (!IsOwner) return;
-
-            // --- Movement Input Handling (Client -> Server) ---
-            Vector2 currentMoveInput = moveAction.ReadValue<Vector2>();
-
-            if (currentMoveInput != moveInput)
+            // The GroundCheck and Rotation must run for the owner regardless of server status
+            if (IsOwner)
             {
-                moveInput = currentMoveInput;
-                RequestMovementServerRpc(moveInput);
+                // --- Movement Input Handling (Client -> Server) ---
+                Vector2 currentMoveInput = moveAction.ReadValue<Vector2>();
+
+                if (currentMoveInput != moveInput)
+                {
+                    moveInput = currentMoveInput;
+                    RequestMovementServerRpc(moveInput);
+                }
+
+                // --- Rotation Input Handling (Client -> Server + Local Prediction) ---
+                RotateCamera();
             }
 
-            // --- Rotation Input Handling (Client -> Server) ---
-            RotateCamera();
-
-            // Ground check (client-side for responsiveness)
-            if (!isGrounded && groundCheckTimer <= 0f)
-            {
-                Vector3 rayOrigin = transform.position + Vector3.up * 0.1f;
-                isGrounded = Physics.Raycast(rayOrigin, Vector3.down, raycastDistance, groundLayer);
-            }
-            else
-            {
-                groundCheckTimer -= Time.deltaTime;
-            }
+            // --- ⚠️ FIX 2: Ground check runs on ALL instances to ensure Server authority works ---
+            GroundCheck();
 
             if (Health.Value <= 0)
                 isAlive = false;
@@ -181,7 +175,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             {
                 PredictiveMove();
             }
-            // ApplyJump still runs on the object that has authority over the Rigidbody at this time
+
             ApplyJump();
         }
 
@@ -194,14 +188,15 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         }
 
         [ServerRpc]
-        private void RequestRotationServerRpc(float horizontalInput)
+        private void RequestRotationServerRpc(float rotationAngle)
         {
-            ApplyRotation(horizontalInput);
+            ApplyRotation(rotationAngle);
         }
 
         [ServerRpc]
         private void RequestJumpServerRpc()
         {
+            // Server checks isGrounded which is updated by the server's GroundCheck()
             if (isGrounded && isAlive)
             {
                 isGrounded = false;
@@ -210,37 +205,49 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             }
         }
 
+        // --- ⚠️ NEW SERVER RPC FOR REVIVAL ---
+        [ServerRpc]
+        private void RequestReviveServerRpc(NetworkObjectReference targetPlayerRef)
+        {
+            if (targetPlayerRef.TryGet(out NetworkObject targetNetObj))
+            {
+                Player targetPlayer = targetNetObj.GetComponent<Player>();
+                if (targetPlayer != null && !targetPlayer.isAlive)
+                {
+                    Debug.Log($"[SERVER] Reviving player {targetPlayer.OwnerClientId}");
+
+                    // Server authoritatively updates the target player's state
+                    targetPlayer.Health.Value = targetPlayer.maxHealth / 2;
+                    targetPlayer.currentHealth = targetPlayer.Health.Value; // Local sync
+                    targetPlayer.isAlive = true;
+                }
+            }
+        }
+
         // --- CLIENT RPC FOR SERVER RECONCILIATION ---
         [ClientRpc]
         private void SendServerPositionClientRpc(Vector3 serverPosition)
         {
-            // Only the owner-client performs the correction check
             if (IsOwner && !IsServer)
             {
-                // Simple correction: snap if position is too far off
                 if (Vector3.Distance(transform.position, serverPosition) > 0.1f)
                 {
-                    // Debug.Log($"Correction: Predicted {transform.position} | Server {serverPosition}");
                     transform.position = serverPosition;
                 }
             }
         }
 
-        // --- Core Movement Functions (Server-Only Execution) ---
+        // --- Core Movement Functions ---
 
-        // Server's authoritative move
         void AuthoritativeMove()
         {
             Vector3 movement = (transform.right * moveInput.x + transform.forward * moveInput.y).normalized;
             Vector3 displacement = movement * moveSpeed * Time.fixedDeltaTime;
 
             rb.MovePosition(rb.position + displacement);
-
-            // Send authoritative position back to the owner for error correction
             SendServerPositionClientRpc(rb.position);
         }
 
-        //   Client's predictive move (only runs on IsOwner && !IsServer)
         void PredictiveMove()
         {
             Vector3 movement = (transform.right * moveInput.x + transform.forward * moveInput.y).normalized;
@@ -272,17 +279,43 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 if (!IsServer)
                 {
                     finalRotation *= clientRotationMultiplier;
+
+                    // ⚠️ FIX 1: Client-Side Rotation Prediction
+                    // Apply the rotation locally and instantly for a smooth feel
+                    transform.Rotate(0f, finalRotation, 0f);
                 }
 
+                // Send the rotation to the server for authoritative update
                 RequestRotationServerRpc(finalRotation);
             }
 
-            // 2. VERTICAL (Camera Rotation) - Stays local to the owner
+            // 2. VERTICAL (Camera Rotation) - Always local to the owner
             verticalRotation -= lookInput.y * mouseSensitivity;
             verticalRotation = Mathf.Clamp(verticalRotation, -90f, 90f);
 
             if (cameraTransform != null)
                 cameraTransform.localEulerAngles = new Vector3(verticalRotation, 0f, 0f);
+        }
+
+        // ⚠️ FIX 2: GroundCheck runs on ALL instances to update local state (P1) and isGrounded (P2)
+        void GroundCheck()
+        {
+            if (!isGrounded && groundCheckTimer <= 0f)
+            {
+                Vector3 rayOrigin = transform.position + Vector3.up * 0.1f;
+                bool wasGrounded = isGrounded;
+                isGrounded = Physics.Raycast(rayOrigin, Vector3.down, raycastDistance, groundLayer);
+
+                // If it just landed, reset timer
+                if (isGrounded && !wasGrounded)
+                {
+                    groundCheckTimer = groundCheckInterval;
+                }
+            }
+            else
+            {
+                groundCheckTimer -= Time.deltaTime;
+            }
         }
 
         void Jump(InputAction.CallbackContext context)
@@ -301,15 +334,11 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         void ApplyJump()
         {
-            // Runs on both Server (Authoritative) and Client (Predictive)
             if (rb.linearVelocity.y < 0)
                 rb.linearVelocity += Vector3.up * Physics.gravity.y * fallMultiplier * Time.fixedDeltaTime;
             else if (rb.linearVelocity.y > 0)
                 rb.linearVelocity += Vector3.up * Physics.gravity.y * ascendMultiplier * Time.fixedDeltaTime;
         }
-
-        // --- Collision, Interaction, Damage, and Shooting regions omitted for brevity (no changes) ---
-        // ... (rest of your code from previous response remains here)
 
         #region Collision and Interaction
         private void OnTriggerEnter(Collider other)
@@ -330,13 +359,19 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         void Interact(InputAction.CallbackContext context)
         {
-            if (onHydrant && currentAmmo < maxAmmo && isAlive)
+            if (!isAlive)
+            {
+                Debug.Log("You are dead and cannot interact");
+                return;
+            }
+
+            if (onHydrant && currentAmmo < maxAmmo)
             {
                 Debug.Log("At hydrant and reloading");
                 currentAmmo = maxAmmo;
             }
 
-            if (onPlayer && isAlive)
+            if (onPlayer)
             {
                 Collider[] nearbyPlayers = Physics.OverlapSphere(transform.position, 2f, playerLayer);
 
@@ -347,21 +382,18 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                     Player otherPlayer = col.GetComponent<Player>();
                     if (otherPlayer != null && !otherPlayer.isAlive)
                     {
-                        Debug.Log("Reviving player");
-                        otherPlayer.currentHealth = otherPlayer.maxHealth / 2;
-                        otherPlayer.isAlive = true;
+                        // ⚠️ FIX 3: Request revival on the Server
+                        Debug.Log($"Requesting revive for player {otherPlayer.OwnerClientId}");
+                        RequestReviveServerRpc(otherPlayer.GetComponent<NetworkObject>());
                         break;
                     }
                 }
-            }
-            else if (!isAlive)
-            {
-                Debug.Log("You are dead and cannot interact");
             }
         }
         #endregion
 
         #region Damage and Health
+        // ... (Damage and Health methods remain the same)
         [ServerRpc(RequireOwnership = false)]
         public void TakeDamageServerRpc(int amount)
         {
