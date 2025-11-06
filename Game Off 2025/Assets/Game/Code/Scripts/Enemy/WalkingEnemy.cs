@@ -17,41 +17,57 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         private Player targetPlayer;
         private Coroutine attackCoroutine;
 
-        private void OnTriggerEnter(Collider other)
+        [SerializeField] private Collider detectionTrigger;  
+        [SerializeField] private Rigidbody enemyRigidBody;
+
+        public override void OnNetworkSpawn()
         {
+            if (enemyRigidBody != null)
+            {
+                enemyRigidBody.isKinematic = true;
+                enemyRigidBody.useGravity = false;
+            }
+        }
+
+
+        private void Awake()
+        {
+            if (detectionTrigger != null)
+            {
+                var triggerRelay = detectionTrigger.gameObject.AddComponent<TriggerRelay>();
+                triggerRelay.Init(this);
+            }
+        }
+
+        public void HandleTriggerEnter(Collider other)
+        {
+            Debug.Log($"[ENEMY] Trigger hit: {other.gameObject.name}, layer={other.gameObject.layer}");
+
             if (!IsServer) return;
+            if (((1 << other.gameObject.layer) & playerLayer) == 0) return;
 
-            if (((1 << other.gameObject.layer) & playerLayer) == 0)
-                return;
-
-            Player player = other.GetComponent<Player>();
+            Player player = other.GetComponentInParent<Player>();
             if (player == null) return;
 
             targetPlayer = player;
-
             if (attackCoroutine == null)
                 attackCoroutine = StartCoroutine(AttackLoop());
         }
 
-
-        private void OnTriggerExit(Collider other)
+        public void HandleTriggerExit(Collider other)
         {
-            if (((1 << other.gameObject.layer) & playerLayer) == 0)
-                return;
-
-            Player player = other.GetComponent<Player>();
+            Player player = other.GetComponentInParent<Player>();
             if (player == targetPlayer)
-            {
                 StopAttacking();
-            }
         }
+
 
         private IEnumerator AttackLoop()
         {
             //delay before first attack
             yield return new WaitForSeconds(1f);
 
-            while (targetPlayer != null && targetPlayer.isAlive)
+            while (targetPlayer != null && targetPlayer.Health.Value > 0)
             {
                 Attack(targetPlayer);
                 yield return new WaitForSeconds(attackDelay);
@@ -64,10 +80,11 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         {
             if (player != null && player.isAlive)
             {
-                Debug.Log("Enemy attacking player calling TakeDamageServerRpc()");
                 player.TakeDamageServerRpc(attackDamage);
             }
         }
+
+
 
 
         private void StopAttacking()
@@ -79,6 +96,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             }
             targetPlayer = null;
         }
+
         public void TakeDamage(float amount)
         {
             if (!IsServer) return;
@@ -93,6 +111,23 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         {
             if (!IsServer) return;
             Destroy(gameObject);
+        }
+        public void Knockback(Vector3 force, float duration = 0.05f)
+        {
+            StopAllCoroutines();
+            StartCoroutine(KnockbackRoutine(force, duration));
+        }
+
+        private IEnumerator KnockbackRoutine(Vector3 force, float duration)
+        {
+            enemyRigidBody.isKinematic = false;   // allow physics temporarily
+            enemyRigidBody.AddForce(force, ForceMode.Impulse);
+
+            yield return new WaitForSeconds(duration);
+
+            enemyRigidBody.linearVelocity = Vector3.zero;   // stop sliding
+            enemyRigidBody.angularVelocity = Vector3.zero;
+            enemyRigidBody.isKinematic = true;   // freeze movement again
         }
 
 

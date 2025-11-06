@@ -283,6 +283,27 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             }
         }
 
+        public void ApplyDamage(int amount)
+        {
+            // Only run on server
+            if (!IsServer) return;
+
+            if (!isAlive) return;
+
+            Debug.Log($"[SERVER] Applying {amount} damage to {OwnerClientId}");
+
+            Health.Value -= amount;
+            currentHealth = Health.Value;
+            timeSinceLastDamage = 0f;
+
+            if (Health.Value <= 0)
+            {
+                Health.Value = 0;
+                currentHealth = 0;
+                isAlive = false;
+                Debug.Log($"{OwnerClientId} has died.");
+            }
+        }
 
 
 

@@ -181,7 +181,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   lifetime: 3
   damageToEnemy: 0.5
-  pushForceToEnemyOrBox: 0.5
+  pushForceToEnemyOrBox: 0.05
   pushForceToPlayer: 10
   enemyLayer:
     serializedVersion: 2

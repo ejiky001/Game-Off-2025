@@ -9,7 +9,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         [Header("Hose Settings")]
         [SerializeField] private float lifetime = 3f;
         [SerializeField] private float damageToEnemy = 0.5f;
-        [SerializeField] private float pushForceToEnemyOrBox = 0.5f;
+        [SerializeField] private float pushForceToEnemyOrBox = 0.05f;
         [SerializeField] private float pushForceToPlayer = 10f;
 
         [Header("Layer Masks")]
@@ -81,16 +81,15 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 {
                     if (other.TryGetComponent(out WalkingEnemy enemy))
                     {
-                        enemy.TakeDamage(damageToEnemy);
-                    }
-
-                    if (other.TryGetComponent(out Rigidbody enemyRb))
-                    {
                         Vector3 pushDir = collision.contacts.Length > 0
                             ? -collision.contacts[0].normal
                             : transform.forward;
-                        enemyRb.AddForce(pushDir.normalized * pushForceToEnemyOrBox, ForceMode.VelocityChange);
+
+                        enemy.Knockback(pushDir.normalized, pushForceToEnemyOrBox);
                     }
+
+
+                   
                 }
 
                 // BOX: push
