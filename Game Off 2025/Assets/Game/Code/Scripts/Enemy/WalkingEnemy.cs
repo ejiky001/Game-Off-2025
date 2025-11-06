@@ -46,28 +46,33 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             if (!IsServer) return;
             if (((1 << other.gameObject.layer) & playerLayer) == 0) return;
 
-            Player player = other.GetComponentInParent<Player>();
-            if (player == null) return;
+            var netObj = other.GetComponentInParent<NetworkObject>();
+            if (netObj != null && netObj.TryGetComponent(out Player player))
+            {
+                targetPlayer = player;
+            }
+           
 
-            targetPlayer = player;
             if (attackCoroutine == null)
                 attackCoroutine = StartCoroutine(AttackLoop());
         }
 
         public void HandleTriggerExit(Collider other)
         {
-            Player player = other.GetComponentInParent<Player>();
-            if (player == targetPlayer)
-                StopAttacking();
+            var netObj = other.GetComponentInParent<NetworkObject>();
+            if (netObj != null && netObj.TryGetComponent(out Player player))
+            {
+                targetPlayer = player;
+            }
+            
         }
 
 
         private IEnumerator AttackLoop()
         {
-            //delay before first attack
             yield return new WaitForSeconds(1f);
 
-            while (targetPlayer != null && targetPlayer.Health.Value > 0)
+            while (targetPlayer != null)
             {
                 Attack(targetPlayer);
                 yield return new WaitForSeconds(attackDelay);
@@ -75,6 +80,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
             StopAttacking();
         }
+
 
         private void Attack(Player player)
         {
