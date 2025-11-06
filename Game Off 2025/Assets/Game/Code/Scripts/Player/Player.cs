@@ -292,16 +292,20 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             }
         }
 
-        #region Shooting System (Distributed Authority Version)
+        #region Shooting System (Authoritative Server Version)
+
         private void AttackStart(InputAction.CallbackContext ctx)
         {
-            if (!isAlive || currentAmmo <= 0) return;
+            if (!IsOwner || !isAlive || currentAmmo <= 0) return;
+
             if (shootingCoroutine == null)
                 shootingCoroutine = StartCoroutine(ShootWater());
         }
 
         private void AttackStop(InputAction.CallbackContext ctx)
         {
+            if (!IsOwner) return;
+
             if (shootingCoroutine != null)
             {
                 StopCoroutine(shootingCoroutine);
@@ -319,7 +323,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                     yield break;
                 }
 
-                currentAmmo -= 0.5f;
+                currentAmmo -= 1;
 
                 Vector3 direction = shootPoint.forward;
                 direction += new Vector3(
@@ -329,25 +333,21 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 );
 
                 Vector3 spawnPos = shootPoint.position + shootPoint.forward * 0.3f;
+
+                // 🔥 Call the server to spawn the projectile
                 SpawnProjectileServerRpc(spawnPos, direction);
 
                 yield return new WaitForSeconds(fireRate);
             }
         }
 
-        private void SpawnProjectile(Vector3 spawnPos, Vector3 direction)
-        {
-            // Instead of spawning here, call the server
-            SpawnProjectileServerRpc(spawnPos, direction);
-        }
-
         [ServerRpc(RequireOwnership = false)]
-        private void SpawnProjectileServerRpc(Vector3 spawnPos, Vector3 direction, ServerRpcParams rpcParams = default)
+        private void SpawnProjectileServerRpc(Vector3 spawnPos, Vector3 direction)
         {
             GameObject projectile = Instantiate(waterProjectilePrefab, spawnPos, Quaternion.LookRotation(direction));
             NetworkObject netObj = projectile.GetComponent<NetworkObject>();
 
-            //  Force server ownership (instead of inheriting the caller)
+            // 🚀 Force SERVER to own it — critical line
             netObj.SpawnWithOwnership(NetworkManager.ServerClientId);
 
             Rigidbody rbProj = projectile.GetComponent<Rigidbody>();
@@ -355,7 +355,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             rbProj.AddForce(direction.normalized * shootForce, ForceMode.Impulse);
         }
 
-
         #endregion
+
     }
 }
