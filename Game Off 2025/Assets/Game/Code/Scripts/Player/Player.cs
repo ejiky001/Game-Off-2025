@@ -36,7 +36,8 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         // --- Movement ---
         private Rigidbody rb;
         public float moveSpeed = 10f;
-        private Vector2 moveInput;
+        private Vector2 moveInput; // Stores the last received input (local or via RPC)
+        private float horizontalRotationInput; // Stores the last received rotation input (via RPC)
 
         // --- Jumping ---
         public float jumpForce = 10f;
@@ -73,21 +74,20 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             rb = GetComponent<Rigidbody>();
             rb.freezeRotation = true;
 
-            // Use the player’s own camera, not Camera.main
             if (playerCamera != null)
                 cameraTransform = playerCamera.transform;
 
-            // Raycast setup
             playerHeight = GetComponent<CapsuleCollider>().height * transform.localScale.y;
 
-            // Setup PlayerInput
             playerInput = GetComponent<PlayerInput>();
             playerInput.enabled = false;
 
             currentHealth = maxHealth;
             currentAmmo = maxAmmo;
 
-            StartCoroutine(Regen());
+            // Health regen should be server-side
+            if (IsServer)
+                StartCoroutine(Regen());
 
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
@@ -121,8 +121,11 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             }
 
         }
-            void OnDisable()
+
+        public override void OnNetworkDespawn()
         {
+            base.OnNetworkDespawn();
+
             if (jumpAction != null) jumpAction.performed -= Jump;
             if (interactAction != null) interactAction.performed -= Interact;
             if (attackAction != null)
@@ -136,10 +139,20 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         {
             if (!IsOwner) return;
 
-            moveInput = moveAction.ReadValue<Vector2>();
+            // --- Movement Input Handling (Client -> Server) ---
+            Vector2 currentMoveInput = moveAction.ReadValue<Vector2>();
+
+            // Only send RPC if input has changed
+            if (currentMoveInput != moveInput)
+            {
+                moveInput = currentMoveInput;
+                RequestMovementServerRpc(moveInput);
+            }
+
+            // --- Rotation Input Handling (Client -> Server) ---
             RotateCamera();
 
-            // Ground check
+            // Ground check (client-side for responsiveness, though server is authoritative for physics)
             if (!isGrounded && groundCheckTimer <= 0f)
             {
                 Vector3 rayOrigin = transform.position + Vector3.up * 0.1f;
@@ -157,26 +170,81 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         void FixedUpdate()
         {
-            if (!IsOwner || !isAlive) return;
+            // The Server must execute movement for all players
+            if (!IsServer || !isAlive) return;
 
             Move();
             ApplyJump();
+
+            // P1 (Host) is the owner and server, so it uses its input. 
+            // P2 (Client) has its moveInput updated via RPC.
         }
+
+        // --- Network RPCs for Movement and Rotation ---
+
+        [ServerRpc]
+        private void RequestMovementServerRpc(Vector2 input)
+        {
+            // Server updates its internal input variable
+            moveInput = input;
+        }
+
+        [ServerRpc]
+        private void RequestRotationServerRpc(float horizontalInput)
+        {
+            // Server applies the rotation authoritatively
+            ApplyRotation(horizontalInput);
+        }
+
+        [ServerRpc]
+        private void RequestJumpServerRpc()
+        {
+            // Server performs the authoritative jump
+            if (isGrounded && isAlive)
+            {
+                isGrounded = false;
+                groundCheckTimer = groundCheckInterval;
+                rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
+            }
+        }
+
+        // --- Core Movement Functions (Server-Only Execution) ---
 
         void Move()
         {
+            // This runs on the Server using the last received moveInput
             Vector3 movement = (transform.right * moveInput.x + transform.forward * moveInput.y).normalized;
             Vector3 displacement = movement * moveSpeed * Time.fixedDeltaTime;
+
+            // rb.MovePosition is an authoritative server operation
             rb.MovePosition(rb.position + displacement);
+        }
+
+        private void ApplyRotation(float horizontalRotation)
+        {
+            // Only the Server should authoritatively change the Networked Transform's rotation
+            if (!IsServer) return;
+
+            // Apply the rotation requested by the owner
+            transform.Rotate(0f, horizontalRotation, 0f);
         }
 
         void RotateCamera()
         {
+            if (!IsOwner) return;
+
             Vector2 lookInput = lookAction.ReadValue<Vector2>();
 
+            // 1. HORIZONTAL (Player/Body Rotation)
             float horizontalRotation = lookInput.x * mouseSensitivity;
-            transform.Rotate(0f, horizontalRotation, 0f);
 
+            // Client sends the rotation amount to the server for authoritative application
+            if (Mathf.Abs(horizontalRotation) > 0.0001f)
+            {
+                RequestRotationServerRpc(horizontalRotation);
+            }
+
+            // 2. VERTICAL (Camera Rotation) - Stays local to the owner
             verticalRotation -= lookInput.y * mouseSensitivity;
             verticalRotation = Mathf.Clamp(verticalRotation, -90f, 90f);
 
@@ -186,21 +254,23 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         void Jump(InputAction.CallbackContext context)
         {
+            // Only the owner handles input, then requests the jump on the server
             if (isGrounded && isAlive)
             {
-                isGrounded = false;
-                groundCheckTimer = groundCheckInterval;
-                rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
+                RequestJumpServerRpc();
             }
         }
 
         void ApplyJump()
         {
+            // Only runs on the Server (in FixedUpdate)
             if (rb.linearVelocity.y < 0)
                 rb.linearVelocity += Vector3.up * Physics.gravity.y * fallMultiplier * Time.fixedDeltaTime;
             else if (rb.linearVelocity.y > 0)
                 rb.linearVelocity += Vector3.up * Physics.gravity.y * ascendMultiplier * Time.fixedDeltaTime;
         }
+
+        // --- Collision and Interaction ---
 
         private void OnTriggerEnter(Collider other)
         {
@@ -250,6 +320,8 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             }
         }
 
+        // --- Damage and Health ---
+
         [ServerRpc(RequireOwnership = false)]
         public void TakeDamageServerRpc(int amount)
         {
@@ -257,7 +329,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
             Debug.Log($"[SERVER] {OwnerClientId} took {amount} damage");
 
-            Health.Value -= amount;       // decrement NETWORK health
+            Health.Value -= amount;        // decrement NETWORK health
             currentHealth = Health.Value; // sync local inspector value
             timeSinceLastDamage = 0f;
 
@@ -292,10 +364,11 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             }
         }
 
-
-
         private IEnumerator Regen()
         {
+            // MUST be Server-side to write to the NetworkVariable
+            if (!IsServer) yield break;
+
             while (true)
             {
                 if (isAlive && Health.Value < maxHealth)
@@ -313,7 +386,6 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 yield return null;
             }
         }
-
 
 
         #region Shooting System (Authoritative Server Version)
@@ -371,7 +443,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             GameObject projectile = Instantiate(waterProjectilePrefab, spawnPos, Quaternion.LookRotation(direction));
             NetworkObject netObj = projectile.GetComponent<NetworkObject>();
 
-            //  Force SERVER to own it — critical line
+            // Force SERVER to own it 
             netObj.SpawnWithOwnership(NetworkManager.ServerClientId);
 
             Rigidbody rbProj = projectile.GetComponent<Rigidbody>();
