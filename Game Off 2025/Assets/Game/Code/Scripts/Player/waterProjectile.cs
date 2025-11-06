@@ -86,10 +86,12 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                             : transform.forward;
 
                         enemy.Knockback(pushDir.normalized, pushForceToEnemyOrBox);
+                        enemy.TakeDamage(damageToEnemy);
+
                     }
 
 
-                   
+
                 }
 
                 // BOX: push

@@ -59,13 +59,18 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         public void HandleTriggerExit(Collider other)
         {
+            if (!IsServer) return;
+
             var netObj = other.GetComponentInParent<NetworkObject>();
             if (netObj != null && netObj.TryGetComponent(out Player player))
             {
-                targetPlayer = player;
+                if (player == targetPlayer)
+                {
+                    StopAttacking();
+                }
             }
-            
         }
+
 
 
         private IEnumerator AttackLoop()
