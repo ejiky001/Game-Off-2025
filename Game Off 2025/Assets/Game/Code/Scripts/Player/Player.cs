@@ -166,15 +166,8 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         void Move()
         {
             Vector3 movement = (transform.right * moveInput.x + transform.forward * moveInput.y).normalized;
-            Vector3 targetVelocity = movement * moveSpeed;
-
-            Vector3 velocity = rb.linearVelocity;
-            velocity.x = targetVelocity.x;
-            velocity.z = targetVelocity.z;
-            rb.linearVelocity = velocity;
-
-            if (isGrounded && moveInput == Vector2.zero)
-                rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
+            Vector3 displacement = movement * moveSpeed * Time.fixedDeltaTime;
+            rb.MovePosition(rb.position + displacement);
         }
 
         void RotateCamera()
@@ -197,7 +190,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             {
                 isGrounded = false;
                 groundCheckTimer = groundCheckInterval;
-                rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpForce, rb.linearVelocity.z);
+                rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
             }
         }
 
