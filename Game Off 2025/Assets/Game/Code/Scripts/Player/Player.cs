@@ -7,26 +7,38 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 {
     public class Player : NetworkBehaviour
     {
+        // --- Networked Data ---
         public NetworkVariable<int> Health = new NetworkVariable<int>(10, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+        public NetworkVariable<Quaternion> NetworkRotation = new NetworkVariable<Quaternion>(
+            Quaternion.identity,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
 
-        // --- Camera controls ---
-        public float mouseSensitivity = 0.25f;
-        private float verticalRotation = 0f;
-        private Transform cameraTransform;
+        // **FIX 1: CHANGED isAlive to NetworkVariable<bool> IsAlive**
+        public NetworkVariable<bool> IsAlive = new NetworkVariable<bool>(
+            true,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
 
-        // --- Client Sensitivity Adjustment ---
-        [Tooltip("Multiplier applied to client rotation input to overcome perceived network lag.")]
-        [SerializeField] private float clientRotationMultiplier = 1.5f;
+        // --- Camera and Look (References for PlayerLook.cs) ---
+        public Camera playerCamera;
+        public AudioListener audioListener;
+        private PlayerLook playerLook;
+        public float mouseSensitivity = 0.25f; // Used by PlayerLook
 
-        // --- Player health ---
+        // --- Rotation Variables ---
+        private float clientHorizontalRotationDelta;
+        private float serverHorizontalRotationDelta;
+
+        // --- Player health/ammo ---
         [SerializeField] private int maxHealth = 10;
         [SerializeField] private int currentHealth;
-        [SerializeField] public bool isAlive = true;
+        // [SerializeField] public bool isAlive = true; // REMOVED: Replaced by IsAlive NetworkVariable
         [SerializeField] private float outOfCombatRegenDelay = 5f;
         [SerializeField] private float timeSinceLastDamage = 0f;
         [SerializeField] private float healthRegenRate = 5f;
-
-        // --- Player ammo ---
         [SerializeField] private float maxAmmo = 100;
         [SerializeField] private float currentAmmo;
 
@@ -40,7 +52,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         // --- Movement ---
         private Rigidbody rb;
         public float moveSpeed = 10f;
-        private Vector2 moveInput; // Stores the last received input (local or via RPC)
+        private Vector2 moveInput;
 
         // --- Jumping ---
         public float jumpForce = 10f;
@@ -68,17 +80,13 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         private bool onHydrant = false;
         private bool onPlayer = false;
 
-        // --- Components ---
-        public Camera playerCamera;
-        public AudioListener audioListener;
-
         void Awake()
         {
             rb = GetComponent<Rigidbody>();
             rb.freezeRotation = true;
+            rb.interpolation = RigidbodyInterpolation.None; // Predictive input
 
-            if (playerCamera != null)
-                cameraTransform = playerCamera.transform;
+            playerLook = GetComponent<PlayerLook>();
 
             playerHeight = GetComponent<CapsuleCollider>().height * transform.localScale.y;
 
@@ -89,9 +97,6 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             currentAmmo = maxAmmo;
 
             StartCoroutine(Regen());
-
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
         }
 
         public override void OnNetworkSpawn()
@@ -110,38 +115,57 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 interactAction = playerInput.actions["Interact"];
                 attackAction = playerInput.actions["Attack"];
 
+                // Pass the input action to the separate look script
+                if (playerLook != null)
+                {
+                    playerLook.Initialize(lookAction);
+                }
+
+                // Initial registration of input actions
                 jumpAction.performed += Jump;
                 interactAction.performed += Interact;
                 attackAction.performed += AttackStart;
                 attackAction.canceled += AttackStop;
+
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
             }
             else
             {
                 if (playerCamera != null) playerCamera.enabled = false;
                 if (audioListener != null) audioListener.enabled = false;
-            }
 
+                // Add interpolation for remote players
+                rb.interpolation = RigidbodyInterpolation.Interpolate;
+                NetworkRotation.OnValueChanged += OnNetworkRotationChanged;
+            }
         }
 
         public override void OnNetworkDespawn()
         {
             base.OnNetworkDespawn();
 
-            if (jumpAction != null) jumpAction.performed -= Jump;
-            if (interactAction != null) interactAction.performed -= Interact;
-            if (attackAction != null)
+            if (IsOwner)
             {
-                attackAction.performed -= AttackStart;
-                attackAction.canceled -= AttackStop;
+                if (jumpAction != null) jumpAction.performed -= Jump;
+                if (interactAction != null) interactAction.performed -= Interact;
+                if (attackAction != null)
+                {
+                    attackAction.performed -= AttackStart;
+                    attackAction.canceled -= AttackStop;
+                }
+            }
+            else if (NetworkRotation != null)
+            {
+                NetworkRotation.OnValueChanged -= OnNetworkRotationChanged;
             }
         }
 
         void Update()
         {
-            // The GroundCheck and Rotation must run for the owner regardless of server status
             if (IsOwner)
             {
-                // --- Movement Input Handling (Client -> Server) ---
+                // Movement Input Handling (Client -> Server)
                 Vector2 currentMoveInput = moveAction.ReadValue<Vector2>();
 
                 if (currentMoveInput != moveInput)
@@ -149,37 +173,51 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                     moveInput = currentMoveInput;
                     RequestMovementServerRpc(moveInput);
                 }
-
-                // --- Rotation Input Handling (Client -> Server + Local Prediction) ---
-                RotateCamera();
             }
 
-            // --- ⚠️ FIX 2: Ground check runs on ALL instances to ensure Server authority works ---
             GroundCheck();
 
-            if (Health.Value <= 0)
-                isAlive = false;
-
+            // Only set IsAlive to false here, the server will set it to true upon revive
+            if (IsServer && Health.Value <= 0) // **Condition added IsServer for authoritative change**
+            {
+                // **FIX 1: Use IsAlive NetworkVariable**
+                IsAlive.Value = false;
+            }
         }
 
         void FixedUpdate()
         {
-            if (!isAlive) return;
+            // **FIX 1: Use IsAlive NetworkVariable**
+            if (!IsAlive.Value) return;
 
-            // --- 🚀 Client-Side Prediction / Server Authoritative Execution ---
             if (IsServer)
             {
-                AuthoritativeMove();
+                AuthoritativeMoveAndRotate();
             }
             else if (IsOwner) // Client Owner
             {
-                PredictiveMove();
+                PredictiveMoveAndRotate();
             }
 
             ApplyJump();
         }
 
-        // --- Network RPCs for Movement, Rotation, and Jump ---
+        void LateUpdate()
+        {
+            // Remote client interpolation for smooth look
+            if (!IsOwner && !IsServer)
+            {
+                transform.rotation = Quaternion.Lerp(transform.rotation, NetworkRotation.Value, Time.deltaTime * 10f);
+            }
+        }
+
+        // --- Public function for PlayerLook.cs to call ---
+        public void AccumulateRotationDelta(float delta)
+        {
+            clientHorizontalRotationDelta += delta;
+        }
+
+        // --- Network RPCs for Movement and Rotation ---
 
         [ServerRpc]
         private void RequestMovementServerRpc(Vector2 input)
@@ -188,16 +226,16 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         }
 
         [ServerRpc]
-        private void RequestRotationServerRpc(float rotationAngle)
+        public void RequestRotationDeltaServerRpc(float rotationDelta)
         {
-            ApplyRotation(rotationAngle);
+            serverHorizontalRotationDelta += rotationDelta;
         }
 
         [ServerRpc]
         private void RequestJumpServerRpc()
         {
-            // Server checks isGrounded which is updated by the server's GroundCheck()
-            if (isGrounded && isAlive)
+            // **FIX 1: Use IsAlive NetworkVariable**
+            if (isGrounded && IsAlive.Value)
             {
                 isGrounded = false;
                 groundCheckTimer = groundCheckInterval;
@@ -205,99 +243,104 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             }
         }
 
-        // --- ⚠️ NEW SERVER RPC FOR REVIVAL ---
+        // --- MODIFIED REVIVE RPC ---
         [ServerRpc]
         private void RequestReviveServerRpc(NetworkObjectReference targetPlayerRef)
         {
             if (targetPlayerRef.TryGet(out NetworkObject targetNetObj))
             {
                 Player targetPlayer = targetNetObj.GetComponent<Player>();
-                if (targetPlayer != null && !targetPlayer.isAlive)
+                // **FIX 1: Use IsAlive NetworkVariable**
+                if (targetPlayer != null && !targetPlayer.IsAlive.Value)
                 {
                     Debug.Log($"[SERVER] Reviving player {targetPlayer.OwnerClientId}");
 
-                    // Server authoritatively updates the target player's state
                     targetPlayer.Health.Value = targetPlayer.maxHealth / 2;
-                    targetPlayer.currentHealth = targetPlayer.Health.Value; // Local sync
-                    targetPlayer.isAlive = true;
+                    targetPlayer.currentHealth = targetPlayer.Health.Value;
+
+                    // **FIX 1: Use IsAlive NetworkVariable**
+                    targetPlayer.IsAlive.Value = true;
+
+                    // Tell the client owner to reset input state
+                    targetPlayer.OnRevivedClientRpc();
                 }
             }
         }
 
-        // --- CLIENT RPC FOR SERVER RECONCILIATION ---
+        // --- NEW CLIENT RPC FOR REVIVE ---
         [ClientRpc]
-        private void SendServerPositionClientRpc(Vector3 serverPosition)
+        private void OnRevivedClientRpc()
+        {
+            if (IsOwner)
+            {
+                Debug.Log("Client received revive notification. Re-enabling actions.");
+
+                // Stop any previous shooting coroutine to ensure AttackStart can run freely
+                if (shootingCoroutine != null)
+                {
+                    StopCoroutine(shootingCoroutine);
+                    shootingCoroutine = null;
+                }
+
+                // Re-register inputs to ensure callbacks are active, especially needed if they were removed on death
+                EnableInputActions();
+            }
+        }
+
+        [ClientRpc]
+        private void SendServerStateClientRpc(Vector3 serverPosition, Quaternion serverRotation)
         {
             if (IsOwner && !IsServer)
             {
+                // Positional correction
                 if (Vector3.Distance(transform.position, serverPosition) > 0.1f)
                 {
                     transform.position = serverPosition;
+                }
+
+                // Rotational correction
+                if (Quaternion.Angle(transform.rotation, serverRotation) > 1.0f)
+                {
+                    transform.rotation = serverRotation;
                 }
             }
         }
 
         // --- Core Movement Functions ---
 
-        void AuthoritativeMove()
+        void AuthoritativeMoveAndRotate()
         {
+            // Apply authoritative rotation
+            Quaternion deltaRotation = Quaternion.Euler(0f, serverHorizontalRotationDelta, 0f);
+            rb.MoveRotation(rb.rotation * deltaRotation);
+            serverHorizontalRotationDelta = 0f;
+
+            // Sync rotation state for remote clients
+            NetworkRotation.Value = rb.rotation;
+
+            // Apply authoritative movement
             Vector3 movement = (transform.right * moveInput.x + transform.forward * moveInput.y).normalized;
             Vector3 displacement = movement * moveSpeed * Time.fixedDeltaTime;
 
             rb.MovePosition(rb.position + displacement);
-            SendServerPositionClientRpc(rb.position);
+
+            SendServerStateClientRpc(rb.position, rb.rotation);
         }
 
-        void PredictiveMove()
+        void PredictiveMoveAndRotate()
         {
+            // Apply predicted rotation
+            Quaternion deltaRotation = Quaternion.Euler(0f, clientHorizontalRotationDelta, 0f);
+            rb.MoveRotation(rb.rotation * deltaRotation);
+            clientHorizontalRotationDelta = 0f;
+
+            // Apply predicted movement
             Vector3 movement = (transform.right * moveInput.x + transform.forward * moveInput.y).normalized;
             Vector3 displacement = movement * moveSpeed * Time.fixedDeltaTime;
 
             rb.MovePosition(rb.position + displacement);
         }
 
-        private void ApplyRotation(float rotationAngle)
-        {
-            if (!IsServer) return;
-
-            transform.Rotate(0f, rotationAngle, 0f);
-        }
-
-        void RotateCamera()
-        {
-            if (!IsOwner) return;
-
-            Vector2 lookInput = lookAction.ReadValue<Vector2>();
-
-            // 1. HORIZONTAL (Player/Body Rotation)
-            float horizontalRotation = lookInput.x * mouseSensitivity;
-
-            if (Mathf.Abs(horizontalRotation) > 0.0001f)
-            {
-                float finalRotation = horizontalRotation;
-
-                if (!IsServer)
-                {
-                    finalRotation *= clientRotationMultiplier;
-
-                    // ⚠️ FIX 1: Client-Side Rotation Prediction
-                    // Apply the rotation locally and instantly for a smooth feel
-                    transform.Rotate(0f, finalRotation, 0f);
-                }
-
-                // Send the rotation to the server for authoritative update
-                RequestRotationServerRpc(finalRotation);
-            }
-
-            // 2. VERTICAL (Camera Rotation) - Always local to the owner
-            verticalRotation -= lookInput.y * mouseSensitivity;
-            verticalRotation = Mathf.Clamp(verticalRotation, -90f, 90f);
-
-            if (cameraTransform != null)
-                cameraTransform.localEulerAngles = new Vector3(verticalRotation, 0f, 0f);
-        }
-
-        // ⚠️ FIX 2: GroundCheck runs on ALL instances to update local state (P1) and isGrounded (P2)
         void GroundCheck()
         {
             if (!isGrounded && groundCheckTimer <= 0f)
@@ -306,7 +349,6 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 bool wasGrounded = isGrounded;
                 isGrounded = Physics.Raycast(rayOrigin, Vector3.down, raycastDistance, groundLayer);
 
-                // If it just landed, reset timer
                 if (isGrounded && !wasGrounded)
                 {
                     groundCheckTimer = groundCheckInterval;
@@ -320,14 +362,13 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         void Jump(InputAction.CallbackContext context)
         {
-            if (isGrounded && isAlive)
+            // **FIX 1: Use IsAlive NetworkVariable**
+            if (isGrounded && IsAlive.Value)
             {
-                // Client predicts jump locally
                 isGrounded = false;
                 groundCheckTimer = groundCheckInterval;
                 rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
 
-                // Then requests authoritative jump from server
                 RequestJumpServerRpc();
             }
         }
@@ -338,6 +379,24 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 rb.linearVelocity += Vector3.up * Physics.gravity.y * fallMultiplier * Time.fixedDeltaTime;
             else if (rb.linearVelocity.y > 0)
                 rb.linearVelocity += Vector3.up * Physics.gravity.y * ascendMultiplier * Time.fixedDeltaTime;
+        }
+
+        private void OnNetworkRotationChanged(Quaternion oldRotation, Quaternion newRotation)
+        {
+            // Handler for remote clients to read the new rotation state
+        }
+
+        // --- NEW HELPER METHOD ---
+        private void EnableInputActions()
+        {
+            // Re-register inputs using -= then += to ensure they are active without duplication
+            if (jumpAction != null) { jumpAction.performed -= Jump; jumpAction.performed += Jump; }
+            if (interactAction != null) { interactAction.performed -= Interact; interactAction.performed += Interact; }
+            if (attackAction != null)
+            {
+                attackAction.performed -= AttackStart; attackAction.performed += AttackStart;
+                attackAction.canceled -= AttackStop; attackAction.canceled += AttackStop;
+            }
         }
 
         #region Collision and Interaction
@@ -359,7 +418,8 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         void Interact(InputAction.CallbackContext context)
         {
-            if (!isAlive)
+            // **FIX 1: Use IsAlive NetworkVariable**
+            if (!IsAlive.Value)
             {
                 Debug.Log("You are dead and cannot interact");
                 return;
@@ -380,9 +440,9 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                     if (col.gameObject == this.gameObject) continue;
 
                     Player otherPlayer = col.GetComponent<Player>();
-                    if (otherPlayer != null && !otherPlayer.isAlive)
+                    // **FIX 1: Use IsAlive NetworkVariable**
+                    if (otherPlayer != null && !otherPlayer.IsAlive.Value)
                     {
-                        // ⚠️ FIX 3: Request revival on the Server
                         Debug.Log($"Requesting revive for player {otherPlayer.OwnerClientId}");
                         RequestReviveServerRpc(otherPlayer.GetComponent<NetworkObject>());
                         break;
@@ -393,33 +453,33 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         #endregion
 
         #region Damage and Health
-        // ... (Damage and Health methods remain the same)
         [ServerRpc(RequireOwnership = false)]
         public void TakeDamageServerRpc(int amount)
         {
-            if (!isAlive) return;
+            // **FIX 1: Use IsAlive NetworkVariable**
+            if (!IsAlive.Value) return;
 
             Debug.Log($"[SERVER] {OwnerClientId} took {amount} damage");
 
-            Health.Value -= amount;        // decrement NETWORK health
-            currentHealth = Health.Value; // sync local inspector value
+            Health.Value -= amount;
+            currentHealth = Health.Value;
             timeSinceLastDamage = 0f;
 
             if (Health.Value <= 0)
             {
                 Health.Value = 0;
                 currentHealth = 0;
-                isAlive = false;
+                // **FIX 1: Use IsAlive NetworkVariable**
+                IsAlive.Value = false;
                 Debug.Log($"{OwnerClientId} has died.");
             }
         }
 
         public void ApplyDamage(int amount)
         {
-            // Only run on server
             if (!IsServer) return;
-
-            if (!isAlive) return;
+            // **FIX 1: Use IsAlive NetworkVariable**
+            if (!IsAlive.Value) return;
 
             Debug.Log($"[SERVER] Applying {amount} damage to {OwnerClientId}");
 
@@ -431,7 +491,8 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             {
                 Health.Value = 0;
                 currentHealth = 0;
-                isAlive = false;
+                // **FIX 1: Use IsAlive NetworkVariable**
+                IsAlive.Value = false;
                 Debug.Log($"{OwnerClientId} has died.");
             }
         }
@@ -440,7 +501,8 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         {
             while (true)
             {
-                if (IsServer && isAlive && Health.Value < maxHealth)
+                // **FIX 1: Use IsAlive NetworkVariable**
+                if (IsServer && IsAlive.Value && Health.Value < maxHealth)
                 {
                     timeSinceLastDamage += Time.deltaTime;
 
@@ -460,7 +522,8 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         #region Shooting System (Authoritative Server Version)
         private void AttackStart(InputAction.CallbackContext ctx)
         {
-            if (!IsOwner || !isAlive || currentAmmo <= 0) return;
+            // **FIX 1: Use IsAlive NetworkVariable**
+            if (!IsOwner || !IsAlive.Value || currentAmmo <= 0) return;
 
             if (shootingCoroutine == null)
                 shootingCoroutine = StartCoroutine(ShootWater());
@@ -484,6 +547,8 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 if (currentAmmo <= 0)
                 {
                     currentAmmo = 0;
+                    // **FIX 3: Nullify coroutine on yield break due to no ammo**
+                    shootingCoroutine = null;
                     yield break;
                 }
 

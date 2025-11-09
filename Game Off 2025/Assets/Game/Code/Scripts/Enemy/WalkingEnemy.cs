@@ -17,7 +17,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         private Player targetPlayer;
         private Coroutine attackCoroutine;
 
-        [SerializeField] private Collider detectionTrigger;  
+        [SerializeField] private Collider detectionTrigger;
         [SerializeField] private Rigidbody enemyRigidBody;
 
         public override void OnNetworkSpawn()
@@ -39,6 +39,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             }
         }
 
+        // --- FIX: Prioritize target acquisition ---
         public void HandleTriggerEnter(Collider other)
         {
             Debug.Log($"[ENEMY] Trigger hit: {other.gameObject.name}, layer={other.gameObject.layer}");
@@ -49,12 +50,18 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             var netObj = other.GetComponentInParent<NetworkObject>();
             if (netObj != null && netObj.TryGetComponent(out Player player))
             {
-                targetPlayer = player;
-            }
-           
+                // **FIX 1: Only acquire the new target if we don't have one, OR if the current one is invalid/dead.**
+                bool acquireNewTarget = targetPlayer == null || !targetPlayer.IsAlive.Value;
 
-            if (attackCoroutine == null)
-                attackCoroutine = StartCoroutine(AttackLoop());
+                if (acquireNewTarget)
+                {
+                    targetPlayer = player;
+
+                    // **Start the attack only if it wasn't already running**
+                    if (attackCoroutine == null)
+                        attackCoroutine = StartCoroutine(AttackLoop());
+                }
+            }
         }
 
         public void HandleTriggerExit(Collider other)
@@ -64,6 +71,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             var netObj = other.GetComponentInParent<NetworkObject>();
             if (netObj != null && netObj.TryGetComponent(out Player player))
             {
+                // **FIX 2: Only stop attacking if the player leaving is the current target.**
                 if (player == targetPlayer)
                 {
                     StopAttacking();
@@ -72,15 +80,28 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         }
 
 
-
         private IEnumerator AttackLoop()
         {
-            yield return new WaitForSeconds(1f);
+            yield return new WaitForSeconds(1f); // Initial delay before the first attack
 
             while (targetPlayer != null)
             {
-                Attack(targetPlayer);
+                // Check if the current target is still valid (alive and in range)
+                if (targetPlayer.IsAlive.Value)
+                {
+                    Attack(targetPlayer);
+                }
+                else
+                {
+                    // Target died, stop the loop and nullify target
+                    StopAttacking();
+                    yield break;
+                }
+
                 yield return new WaitForSeconds(attackDelay);
+
+                // Re-evaluate the target's presence/state here if needed, 
+                // but relying on HandleTriggerExit for range and the check above for state is simpler.
             }
 
             StopAttacking();
@@ -89,13 +110,11 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         private void Attack(Player player)
         {
-            if (player != null && player.isAlive)
+            if (player != null && player.IsAlive.Value)
             {
                 player.TakeDamageServerRpc(attackDamage);
             }
         }
-
-
 
 
         private void StopAttacking()
@@ -108,6 +127,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             targetPlayer = null;
         }
 
+        // ... (Rest of the script: TakeDamage, Die, Knockback, KnockbackRoutine) ...
         public void TakeDamage(float amount)
         {
             if (!IsServer) return;
@@ -140,8 +160,5 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             enemyRigidBody.angularVelocity = Vector3.zero;
             enemyRigidBody.isKinematic = true;   // freeze movement again
         }
-
-
     }
-
 }

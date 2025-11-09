@@ -10,7 +10,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         [SerializeField] private float lifetime = 3f;
         [SerializeField] private float damageToEnemy = 0.5f;
         [SerializeField] private float pushForceToEnemyOrBox = 0.05f;
-        [SerializeField] private float pushForceToPlayer = 10f;
+        [SerializeField] private float pushForceToPlayer = 1f;
 
         [Header("Layer Masks")]
         [SerializeField] private LayerMask enemyLayer;

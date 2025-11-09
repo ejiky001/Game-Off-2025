@@ -182,7 +182,7 @@ MonoBehaviour:
   lifetime: 3
   damageToEnemy: 0.5
   pushForceToEnemyOrBox: 0.05
-  pushForceToPlayer: 10
+  pushForceToPlayer: 1
   enemyLayer:
     serializedVersion: 2
     m_Bits: 256
