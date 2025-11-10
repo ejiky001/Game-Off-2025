@@ -35,7 +35,6 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         // --- Player health/ammo ---
         [SerializeField] private int maxHealth = 10;
         [SerializeField] private int currentHealth;
-        // [SerializeField] public bool isAlive = true; // REMOVED: Replaced by IsAlive NetworkVariable
         [SerializeField] private float outOfCombatRegenDelay = 5f;
         [SerializeField] private float timeSinceLastDamage = 0f;
         [SerializeField] private float healthRegenRate = 5f;
@@ -102,6 +101,14 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
+
+            // Register state change listener for all clients
+            IsAlive.OnValueChanged += OnIsAliveValueChanged;
+            NetworkRotation.OnValueChanged += OnNetworkRotationChanged;
+
+            // Apply initial state based on current value
+            OnIsAliveValueChanged(false, IsAlive.Value);
+
             if (IsOwner)
             {
                 playerInput.enabled = true;
@@ -122,22 +129,18 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 }
 
                 // Initial registration of input actions
-                jumpAction.performed += Jump;
-                interactAction.performed += Interact;
-                attackAction.performed += AttackStart;
-                attackAction.canceled += AttackStop;
+                EnableInputActions();
 
                 Cursor.lockState = CursorLockMode.Locked;
                 Cursor.visible = false;
             }
-            else
+            else // Remote Client
             {
                 if (playerCamera != null) playerCamera.enabled = false;
                 if (audioListener != null) audioListener.enabled = false;
 
                 // Add interpolation for remote players
                 rb.interpolation = RigidbodyInterpolation.Interpolate;
-                NetworkRotation.OnValueChanged += OnNetworkRotationChanged;
             }
         }
 
@@ -145,25 +148,21 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         {
             base.OnNetworkDespawn();
 
+            // Deregister listeners
+            if (IsAlive != null) IsAlive.OnValueChanged -= OnIsAliveValueChanged;
+            if (NetworkRotation != null) NetworkRotation.OnValueChanged -= OnNetworkRotationChanged;
+
+            // Clean up input actions if this was the owner
             if (IsOwner)
             {
-                if (jumpAction != null) jumpAction.performed -= Jump;
-                if (interactAction != null) interactAction.performed -= Interact;
-                if (attackAction != null)
-                {
-                    attackAction.performed -= AttackStart;
-                    attackAction.canceled -= AttackStop;
-                }
-            }
-            else if (NetworkRotation != null)
-            {
-                NetworkRotation.OnValueChanged -= OnNetworkRotationChanged;
+                DisableInputActions();
             }
         }
 
         void Update()
         {
-            if (IsOwner)
+            // Only update input if player is alive
+            if (IsOwner && IsAlive.Value)
             {
                 // Movement Input Handling (Client -> Server)
                 Vector2 currentMoveInput = moveAction.ReadValue<Vector2>();
@@ -177,17 +176,17 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
             GroundCheck();
 
-            // Only set IsAlive to false here, the server will set it to true upon revive
-            if (IsServer && Health.Value <= 0) // **Condition added IsServer for authoritative change**
+            // Authoritative death check (Server-only)
+            if (IsServer && Health.Value <= 0 && IsAlive.Value)
             {
-                // **FIX 1: Use IsAlive NetworkVariable**
+                // Set IsAlive to false when health hits zero
                 IsAlive.Value = false;
             }
         }
 
         void FixedUpdate()
         {
-            // **FIX 1: Use IsAlive NetworkVariable**
+            // Only allow movement physics if player is alive
             if (!IsAlive.Value) return;
 
             if (IsServer)
@@ -209,6 +208,25 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             {
                 transform.rotation = Quaternion.Lerp(transform.rotation, NetworkRotation.Value, Time.deltaTime * 10f);
             }
+        }
+
+        // --- NEW: SERVER-SIDE TELEPORTATION FOR SPAWNING ---
+        /// <summary>
+        /// Called by a separate Spawning Manager in the Game Scene (Server-side only)
+        /// to place the player at their designated spawn point immediately after scene load.
+        /// </summary>
+        public void ServerTeleport(Vector3 newPosition)
+        {
+            if (!IsServer) return;
+
+            Debug.Log($"[SERVER] Teleporting player {OwnerClientId} to {newPosition}");
+
+            // 1. Set the position authoritatively
+            transform.position = newPosition;
+
+            // 2. Reset physics movement (important after scene change/teleport)
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
         }
 
         // --- Public function for PlayerLook.cs to call ---
@@ -234,13 +252,42 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         [ServerRpc]
         private void RequestJumpServerRpc()
         {
-            // **FIX 1: Use IsAlive NetworkVariable**
             if (isGrounded && IsAlive.Value)
             {
                 isGrounded = false;
                 groundCheckTimer = groundCheckInterval;
                 rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
             }
+        }
+
+        // --- State Change Handlers ---
+
+        /// <summary>
+        /// Runs on all clients when the IsAlive state changes (Death/Revive).
+        /// </summary>
+        private void OnIsAliveValueChanged(bool oldState, bool newState)
+        {
+            Debug.Log($"Player {OwnerClientId} IsAlive changed from {oldState} to {newState}");
+
+            // Disable/Enable the Rigidbody and Collider for physical death state
+            rb.isKinematic = !newState; // Use kinematic if dead to stop physics movement
+
+            if (IsOwner)
+            {
+                if (newState) // Player is now alive
+                {
+                    EnableInputActions();
+                    // Clear the input field for movement to prevent ghost movement
+                    moveInput = Vector2.zero;
+                    RequestMovementServerRpc(moveInput); // Notify server of zero input
+                }
+                else // Player has died
+                {
+                    DisableInputActions();
+                }
+            }
+
+            // Optionally, handle visuals (e.g., enable ragdoll, change shader, hide gun model) here
         }
 
         // --- MODIFIED REVIVE RPC ---
@@ -250,40 +297,17 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             if (targetPlayerRef.TryGet(out NetworkObject targetNetObj))
             {
                 Player targetPlayer = targetNetObj.GetComponent<Player>();
-                // **FIX 1: Use IsAlive NetworkVariable**
                 if (targetPlayer != null && !targetPlayer.IsAlive.Value)
                 {
                     Debug.Log($"[SERVER] Reviving player {targetPlayer.OwnerClientId}");
 
+                    // Restore health state
                     targetPlayer.Health.Value = targetPlayer.maxHealth / 2;
                     targetPlayer.currentHealth = targetPlayer.Health.Value;
 
-                    // **FIX 1: Use IsAlive NetworkVariable**
+                    // Set IsAlive to true, triggering OnIsAliveValueChanged on all clients
                     targetPlayer.IsAlive.Value = true;
-
-                    // Tell the client owner to reset input state
-                    targetPlayer.OnRevivedClientRpc();
                 }
-            }
-        }
-
-        // --- NEW CLIENT RPC FOR REVIVE ---
-        [ClientRpc]
-        private void OnRevivedClientRpc()
-        {
-            if (IsOwner)
-            {
-                Debug.Log("Client received revive notification. Re-enabling actions.");
-
-                // Stop any previous shooting coroutine to ensure AttackStart can run freely
-                if (shootingCoroutine != null)
-                {
-                    StopCoroutine(shootingCoroutine);
-                    shootingCoroutine = null;
-                }
-
-                // Re-register inputs to ensure callbacks are active, especially needed if they were removed on death
-                EnableInputActions();
             }
         }
 
@@ -362,8 +386,9 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         void Jump(InputAction.CallbackContext context)
         {
-            // **FIX 1: Use IsAlive NetworkVariable**
-            if (isGrounded && IsAlive.Value)
+            if (!IsAlive.Value) return; // Only jump if alive
+
+            if (isGrounded)
             {
                 isGrounded = false;
                 groundCheckTimer = groundCheckInterval;
@@ -386,7 +411,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             // Handler for remote clients to read the new rotation state
         }
 
-        // --- NEW HELPER METHOD ---
+        // --- INPUT Helper Methods ---
         private void EnableInputActions()
         {
             // Re-register inputs using -= then += to ensure they are active without duplication
@@ -396,6 +421,23 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             {
                 attackAction.performed -= AttackStart; attackAction.performed += AttackStart;
                 attackAction.canceled -= AttackStop; attackAction.canceled += AttackStop;
+            }
+        }
+
+        private void DisableInputActions()
+        {
+            if (jumpAction != null) jumpAction.performed -= Jump;
+            if (interactAction != null) interactAction.performed -= Interact;
+            if (attackAction != null)
+            {
+                attackAction.performed -= AttackStart;
+                attackAction.canceled -= AttackStop;
+                // Stop shooting immediately
+                if (shootingCoroutine != null)
+                {
+                    StopCoroutine(shootingCoroutine);
+                    shootingCoroutine = null;
+                }
             }
         }
 
@@ -418,7 +460,6 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         void Interact(InputAction.CallbackContext context)
         {
-            // **FIX 1: Use IsAlive NetworkVariable**
             if (!IsAlive.Value)
             {
                 Debug.Log("You are dead and cannot interact");
@@ -440,7 +481,6 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                     if (col.gameObject == this.gameObject) continue;
 
                     Player otherPlayer = col.GetComponent<Player>();
-                    // **FIX 1: Use IsAlive NetworkVariable**
                     if (otherPlayer != null && !otherPlayer.IsAlive.Value)
                     {
                         Debug.Log($"Requesting revive for player {otherPlayer.OwnerClientId}");
@@ -456,7 +496,6 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         [ServerRpc(RequireOwnership = false)]
         public void TakeDamageServerRpc(int amount)
         {
-            // **FIX 1: Use IsAlive NetworkVariable**
             if (!IsAlive.Value) return;
 
             Debug.Log($"[SERVER] {OwnerClientId} took {amount} damage");
@@ -469,7 +508,6 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             {
                 Health.Value = 0;
                 currentHealth = 0;
-                // **FIX 1: Use IsAlive NetworkVariable**
                 IsAlive.Value = false;
                 Debug.Log($"{OwnerClientId} has died.");
             }
@@ -478,7 +516,6 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         public void ApplyDamage(int amount)
         {
             if (!IsServer) return;
-            // **FIX 1: Use IsAlive NetworkVariable**
             if (!IsAlive.Value) return;
 
             Debug.Log($"[SERVER] Applying {amount} damage to {OwnerClientId}");
@@ -491,7 +528,6 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             {
                 Health.Value = 0;
                 currentHealth = 0;
-                // **FIX 1: Use IsAlive NetworkVariable**
                 IsAlive.Value = false;
                 Debug.Log($"{OwnerClientId} has died.");
             }
@@ -501,7 +537,6 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         {
             while (true)
             {
-                // **FIX 1: Use IsAlive NetworkVariable**
                 if (IsServer && IsAlive.Value && Health.Value < maxHealth)
                 {
                     timeSinceLastDamage += Time.deltaTime;
@@ -522,7 +557,6 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         #region Shooting System (Authoritative Server Version)
         private void AttackStart(InputAction.CallbackContext ctx)
         {
-            // **FIX 1: Use IsAlive NetworkVariable**
             if (!IsOwner || !IsAlive.Value || currentAmmo <= 0) return;
 
             if (shootingCoroutine == null)
@@ -547,7 +581,6 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 if (currentAmmo <= 0)
                 {
                     currentAmmo = 0;
-                    // **FIX 3: Nullify coroutine on yield break due to no ammo**
                     shootingCoroutine = null;
                     yield break;
                 }
