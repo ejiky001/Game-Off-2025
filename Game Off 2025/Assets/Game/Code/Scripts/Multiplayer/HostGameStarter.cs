@@ -19,6 +19,9 @@ public class HostGameStarter : MonoBehaviour
 
     void Start()
     {
+        // Disable the button until we confirm host status
+        if (m_StartButton != null)
+            m_StartButton.interactable = false;
         // 1. Validate Netcode Singleton
         if (NetworkManager.Singleton == null)
         {
@@ -46,18 +49,26 @@ public class HostGameStarter : MonoBehaviour
     /// </summary>
     private void OnServerRoleConfirmed()
     {
-        if (m_StartButton != null && NetworkManager.Singleton.IsHost)
+        if (m_StartButton != null)
         {
-            // Now we know we are the host, activate the button
-            m_StartButton.gameObject.SetActive(true);
+            if (NetworkManager.Singleton.IsHost)
+            {
+                m_StartButton.interactable = true;
 
-            // Attach Click Listener
-            m_StartButton.onClick.RemoveAllListeners(); // Safety first
-            m_StartButton.onClick.AddListener(StartGame);
+                // Attach listener only when host
+                m_StartButton.onClick.RemoveAllListeners();
+                m_StartButton.onClick.AddListener(StartGame);
 
-            Debug.Log("Host button enabled and ready.");
+                Debug.Log("Start button enabled. Host detected.");
+            }
+            else
+            {
+                m_StartButton.interactable = false;
+                Debug.Log("Not the host — Start button disabled.");
+            }
         }
     }
+
 
     /// <summary>
     /// Executes when the Host clicks the button.
