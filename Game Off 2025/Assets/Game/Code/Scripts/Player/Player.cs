@@ -87,10 +87,18 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
             playerLook = GetComponent<PlayerLook>();
 
-            playerHeight = GetComponent<CapsuleCollider>().height * transform.localScale.y;
+            CapsuleCollider capsuleCollider = GetComponent<CapsuleCollider>();
+            if (capsuleCollider != null)
+            {
+                playerHeight = capsuleCollider.height * transform.localScale.y;
+            }
 
             playerInput = GetComponent<PlayerInput>();
-            playerInput.enabled = false;
+            // Disable PlayerInput initially until we confirm NetworkOwnership
+            if (playerInput != null)
+            {
+                playerInput.enabled = false;
+            }
 
             currentHealth = maxHealth;
             currentAmmo = maxAmmo;
@@ -111,25 +119,29 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
             if (IsOwner)
             {
-                playerInput.enabled = true;
+                if (playerInput != null)
+                {
+                    playerInput.enabled = true;
+
+                    moveAction = playerInput.actions["Move"];
+                    lookAction = playerInput.actions["Look"];
+                    jumpAction = playerInput.actions["Jump"];
+                    interactAction = playerInput.actions["Interact"];
+                    attackAction = playerInput.actions["Attack"];
+
+                    // Pass the input action to the separate look script
+                    if (playerLook != null)
+                    {
+                        playerLook.Initialize(lookAction);
+                    }
+
+                    // Initial registration and enabling of input actions
+                    EnableInputActions();
+                }
 
                 if (playerCamera != null) playerCamera.enabled = true;
                 if (audioListener != null) audioListener.enabled = true;
 
-                moveAction = playerInput.actions["Move"];
-                lookAction = playerInput.actions["Look"];
-                jumpAction = playerInput.actions["Jump"];
-                interactAction = playerInput.actions["Interact"];
-                attackAction = playerInput.actions["Attack"];
-
-                // Pass the input action to the separate look script
-                if (playerLook != null)
-                {
-                    playerLook.Initialize(lookAction);
-                }
-
-                // Initial registration of input actions
-                EnableInputActions();
 
                 Cursor.lockState = CursorLockMode.Locked;
                 Cursor.visible = false;
@@ -165,8 +177,9 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             if (IsOwner && IsAlive.Value)
             {
                 // Movement Input Handling (Client -> Server)
-                Vector2 currentMoveInput = moveAction.ReadValue<Vector2>();
+                Vector2 currentMoveInput = moveAction?.ReadValue<Vector2>() ?? Vector2.zero;
 
+                // Check if input has changed before requesting movement RPC
                 if (currentMoveInput != moveInput)
                 {
                     moveInput = currentMoveInput;
@@ -348,7 +361,16 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
             rb.MovePosition(rb.position + displacement);
 
-            SendServerStateClientRpc(rb.position, rb.rotation);
+            // --- FIX 1: Ensure NetworkObject is spawned before invoking RPC ---
+            if (IsSpawned)
+            {
+                SendServerStateClientRpc(rb.position, rb.rotation);
+            }
+            else
+            {
+                // This prevents the "Rpc methods can only be invoked after starting the NetworkManager!" error
+                Debug.LogWarning($"[SERVER] Player {OwnerClientId} not fully spawned, skipping SendServerStateClientRpc.");
+            }
         }
 
         void PredictiveMoveAndRotate()
@@ -394,6 +416,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 groundCheckTimer = groundCheckInterval;
                 rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
 
+                // Note: The jump movement is applied locally and then the RPC is sent for the server to confirm/adjust
                 RequestJumpServerRpc();
             }
         }
@@ -414,24 +437,34 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         // --- INPUT Helper Methods ---
         private void EnableInputActions()
         {
-            // Re-register inputs using -= then += to ensure they are active without duplication
-            if (jumpAction != null) { jumpAction.performed -= Jump; jumpAction.performed += Jump; }
-            if (interactAction != null) { interactAction.performed -= Interact; interactAction.performed += Interact; }
+            // --- FIX 2: Explicitly enable continuous actions (Move/Look) ---
+            if (moveAction != null) moveAction.Enable();
+            if (lookAction != null) lookAction.Enable();
+
+            // Re-register instantaneous actions
+            if (jumpAction != null) { jumpAction.performed -= Jump; jumpAction.performed += Jump; jumpAction.Enable(); }
+            if (interactAction != null) { interactAction.performed -= Interact; interactAction.performed += Interact; interactAction.Enable(); }
             if (attackAction != null)
             {
                 attackAction.performed -= AttackStart; attackAction.performed += AttackStart;
                 attackAction.canceled -= AttackStop; attackAction.canceled += AttackStop;
+                attackAction.Enable();
             }
         }
 
         private void DisableInputActions()
         {
-            if (jumpAction != null) jumpAction.performed -= Jump;
-            if (interactAction != null) interactAction.performed -= Interact;
+            if (moveAction != null) moveAction.Disable();
+            if (lookAction != null) lookAction.Disable();
+
+            if (jumpAction != null) { jumpAction.performed -= Jump; jumpAction.Disable(); }
+            if (interactAction != null) { interactAction.performed -= Interact; interactAction.Disable(); }
             if (attackAction != null)
             {
                 attackAction.performed -= AttackStart;
                 attackAction.canceled -= AttackStop;
+                attackAction.Disable();
+
                 // Stop shooting immediately
                 if (shootingCoroutine != null)
                 {
@@ -608,6 +641,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             GameObject projectile = Instantiate(waterProjectilePrefab, spawnPos, Quaternion.LookRotation(direction));
             NetworkObject netObj = projectile.GetComponent<NetworkObject>();
 
+            // The projectile should ideally be spawned with ServerClientId as owner if the server controls its logic
             netObj.SpawnWithOwnership(NetworkManager.ServerClientId);
 
             Rigidbody rbProj = projectile.GetComponent<Rigidbody>();

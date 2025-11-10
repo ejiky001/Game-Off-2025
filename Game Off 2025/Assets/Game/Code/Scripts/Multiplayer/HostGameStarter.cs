@@ -1,113 +1,108 @@
 using UnityEngine;
+using UnityEngine.UI;
 using Unity.Netcode;
 using UnityEngine.SceneManagement;
-using System.Collections.Generic;
+// FIX: Required to access the Player class definition (from Player.cs)
 using Unity.Multiplayer.Center.NetcodeForGameObjects;
 
-
 /// <summary>
-/// This script manages the player spawning process when the dedicated game scene is loaded.
-/// It MUST be placed on a GameObject in the GameScene.
-/// Requires the NetworkManager's "Auto Create Player" to be DISABLED.
+/// Manages the "Start Game" button, making it visible only to the Host,
+/// and triggering a network-synchronized scene load when clicked.
 /// </summary>
-public class GameSceneSpawnManager : NetworkBehaviour
+public class HostGameStarter : MonoBehaviour
 {
-    [Header("Configuration")]
-    [Tooltip("The Player prefab that should be spawned for each client. MUST be a Network Prefab.")]
-    [SerializeField] private GameObject m_PlayerPrefab;
+    [Header("UI References")]
+    [Tooltip("Drag the Button component the host will press to start the game. Start the button disabled in the Inspector.")]
+    [SerializeField] private UnityEngine.UI.Button m_StartButton;
 
-    [Tooltip("List of potential spawn points in the scene (assign these in the Inspector).")]
-    [SerializeField] private List<Transform> m_SpawnPoints;
+    [Header("Scene Configuration")]
+    [Tooltip("The exact name of the scene to load (must be in your build settings).")]
+    [SerializeField] private string m_GameSceneName = "GameScene";
 
-    private int m_NextSpawnIndex = 0;
-
-    public override void OnNetworkSpawn()
+    void Start()
     {
-        // This script should only run its logic on the Server/Host.
-        if (!IsServer)
+        // 1. Validate Netcode Singleton
+        if (NetworkManager.Singleton == null)
         {
-            // Destroy the component on clients as it's not needed for spawning.
-            Destroy(this);
+            Debug.LogError("HostGameStarter requires an active NetworkManager in the scene.");
+            if (m_StartButton != null) m_StartButton.gameObject.SetActive(false);
             return;
         }
 
-        // --- Core Spawning Logic on Scene Load ---
+        // 2. Register for the OnServerStarted event. This ensures the button setup
+        // only runs AFTER the NetworkManager has successfully started as a Host/Server.
+        NetworkManager.Singleton.OnServerStarted += OnServerRoleConfirmed;
 
-        // This delegate is invoked on the server after a network scene load finishes 
-        // for ALL connected clients.
-        NetworkManager.Singleton.SceneManager.OnLoadEventCompleted += OnSceneLoadCompleted;
-
-        Debug.Log("[GameSceneSpawnManager] Server initialized. Listening for scene load complete.");
-    }
-
-    public override void OnNetworkDespawn()
-    {
-        // Clean up the subscription when this NetworkObject is destroyed.
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.SceneManager != null)
+        // 3. Handle case where this script is added to a running Host
+        if (NetworkManager.Singleton.IsHost)
         {
-            NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= OnSceneLoadCompleted;
+            OnServerRoleConfirmed();
+        }
+
+        // 4. Final checks
+        if (string.IsNullOrEmpty(m_GameSceneName))
+        {
+            Debug.LogError("Game Scene Name is not set on HostGameStarter.");
+        }
+        if (m_StartButton == null)
+        {
+            Debug.LogError("Start Button reference is missing on HostGameStarter.");
         }
     }
 
     /// <summary>
-    /// Event handler called by NGO when a scene load operation finishes.
-    /// This is where we manually spawn players.
+    /// Event handler for NetworkManager.OnServerStarted. 
+    /// Only the Host will execute this logic.
     /// </summary>
-    private void OnSceneLoadCompleted(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
+    private void OnServerRoleConfirmed()
     {
-        Debug.Log($"[GameSceneSpawnManager] Scene load completed for {sceneName}. Spawning players...");
-
-        // Iterate over all connected client IDs.
-        foreach (ulong clientId in NetworkManager.Singleton.ConnectedClientsIds)
+        if (m_StartButton != null && NetworkManager.Singleton.IsHost)
         {
-            // Check if the client already has a Player Object spawned (shouldn't happen, but good practice).
-            if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var client) || client.PlayerObject != null)
-            {
-                continue;
-            }
+            // Now we know we are the host, activate the button
+            m_StartButton.gameObject.SetActive(true);
 
-            // 1. Determine Spawn Position
-            Vector3 spawnPos = GetNextSpawnPoint();
+            // Attach Click Listener
+            m_StartButton.onClick.RemoveAllListeners(); // Safety first
+            m_StartButton.onClick.AddListener(StartGame);
 
-            // 2. Instantiate the Player Prefab
-            GameObject playerGameObject = Instantiate(m_PlayerPrefab, spawnPos, Quaternion.identity);
-
-            // 3. Spawn the NetworkObject and assign ownership to the client (PlayerObject status = true)
-            NetworkObject playerNetworkObject = playerGameObject.GetComponent<NetworkObject>();
-            if (playerNetworkObject != null)
-            {
-                playerNetworkObject.SpawnAsPlayerObject(clientId, true);
-
-                // 4. Call ServerTeleport (as defined in Player.cs) to ensure Rigidbody is reset
-                Player playerComponent = playerGameObject.GetComponent<Player>();
-                if (playerComponent != null)
-                {
-                    playerComponent.ServerTeleport(spawnPos);
-                }
-            }
-            else
-            {
-                Debug.LogError($"[GameSceneSpawnManager] Player Prefab missing NetworkObject component!");
-            }
+            Debug.Log("Host button enabled and ready.");
         }
-
-        Debug.Log("[GameSceneSpawnManager] All players manually spawned.");
     }
 
     /// <summary>
-    /// Cycles through the spawn points list to ensure even distribution.
+    /// Executes when the Host clicks the button.
+    /// Triggers a synchronized scene load across all connected clients using NGO's SceneManager.
     /// </summary>
-    private Vector3 GetNextSpawnPoint()
+    private void StartGame()
     {
-        if (m_SpawnPoints == null || m_SpawnPoints.Count == 0)
+        if (!NetworkManager.Singleton.IsHost)
         {
-            Debug.LogError("No spawn points assigned! Returning origin (0,0,0).");
-            return Vector3.zero;
+            Debug.LogWarning("Only the host can initiate the scene change.");
+            return;
         }
 
-        Transform spawnTransform = m_SpawnPoints[m_NextSpawnIndex];
-        m_NextSpawnIndex = (m_NextSpawnIndex + 1) % m_SpawnPoints.Count; // Cycle index
+        Debug.Log($"Host starting game and loading scene: {m_GameSceneName}");
 
-        return spawnTransform.position;
+        // NGO automatically synchronizes the scene load to all connected clients (Clients and Server).
+        // This relies on the scene name being correct and the scene being in Build Settings.
+        NetworkManager.Singleton.SceneManager.LoadScene(
+            m_GameSceneName,
+            LoadSceneMode.Single
+        );
+    }
+
+    private void OnDestroy()
+    {
+        // Clean up the event listener
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.OnServerStarted -= OnServerRoleConfirmed;
+        }
+
+        // Remove the button click listener
+        if (m_StartButton != null)
+        {
+            m_StartButton.onClick.RemoveListener(StartGame);
+        }
     }
 }
