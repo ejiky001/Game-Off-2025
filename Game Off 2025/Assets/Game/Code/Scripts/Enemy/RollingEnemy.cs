@@ -4,13 +4,13 @@ using UnityEngine;
 
 namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 {
-    public class WalkingEnemy : NetworkBehaviour
+    public class RollingEnemy : NetworkBehaviour
     {
         [SerializeField] private float health = 5f;
         [SerializeField] private float moveSpeed = 2f;
         [SerializeField] private int attackDamage = 1;
 
-        [SerializeField] private float attackDelay = 3f; // seconds between attacks
+        [SerializeField] private float attackDelay = 5f; // seconds between attacks
 
         public LayerMask playerLayer;
 
@@ -55,7 +55,6 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 {
                     targetPlayer = player;
 
-                    // **Start the attack only if it wasn't already running**
                     if (attackCoroutine == null)
                         attackCoroutine = StartCoroutine(AttackLoop());
                 }

@@ -1,3 +1,4 @@
+using System;
 using Unity.Multiplayer.Center.NetcodeForGameObjects;
 using UnityEngine;
 
@@ -8,6 +9,11 @@ public class TriggerRelay : MonoBehaviour
     public void Init(WalkingEnemy enemyScript)
     {
         enemy = enemyScript;
+    }
+
+    internal void Init(RollingEnemy rollingEnemy)
+    {
+        throw new NotImplementedException();
     }
 
     private void OnTriggerEnter(Collider other)
