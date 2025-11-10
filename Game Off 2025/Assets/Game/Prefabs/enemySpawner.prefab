@@ -73,3 +73,4 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   spawnPrefab: {fileID: 944409570124378260, guid: 137f5c30840b9444c9eee61e70fadd22, type: 3}
   spawnLocation: {fileID: 583591370229494702}
+  spawnDelay: 1
