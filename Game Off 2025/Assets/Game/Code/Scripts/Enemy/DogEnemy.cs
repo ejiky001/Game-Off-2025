@@ -1,148 +1,336 @@
 using System.Collections;
+
 using Unity.Netcode;
+
 using UnityEngine;
 
+
+
 namespace Unity.Multiplayer.Center.NetcodeForGameObjects
+
 {
-    public class WalkingEnemy : NetworkBehaviour
+
+   
+
+    public class DogEnemy : NetworkBehaviour
+
     {
+
+        [Header("General Settings")]
+
         [SerializeField] private float health = 5f;
-        [SerializeField] private float moveSpeed = 2f;
-        [SerializeField] private int attackDamage = 1;
 
-        [SerializeField] private float attackDelay = 3f; // seconds between attacks
 
-        public LayerMask playerLayer;
 
-        private Player targetPlayer;
-        private Coroutine attackCoroutine;
+        [Header("AI & Targeting")]
+
+        [SerializeField] private LayerMask playerLayer;
 
         [SerializeField] private Collider detectionTrigger;
+
+
+
+        // Firing rate is 3 seconds
+
+        [SerializeField] private float fireRate = 3f;
+
+
+
+        [Header("Projectile Settings (NEW)")]
+
+        [Tooltip("Prefab of the EnemyProjectile script with a NetworkObject and Rigidbody.")]
+
+        [SerializeField] private GameObject projectilePrefab;
+
+        [Tooltip("Empty GameObject indicating where the projectile spawns.")]
+
+        [SerializeField] private Transform shootingPosition;
+
+        [SerializeField] private float projectileSpeed = 15f;
+
+
+
+        // Movement components are kept for knockback/positioning flexibility
+
+        [SerializeField] private float moveSpeed = 2f;
+
         [SerializeField] private Rigidbody enemyRigidBody;
 
+
+
+        private Player targetPlayer;
+
+        private Coroutine attackCoroutine;
+
+
+
         public override void OnNetworkSpawn()
+
         {
-           
+
+
         }
+
 
 
         private void Awake()
+
         {
+
             if (detectionTrigger != null)
+
             {
+
                 var triggerRelay = detectionTrigger.gameObject.AddComponent<TriggerRelay>();
+
                 triggerRelay.Init(this);
+
             }
+
         }
+
+
+
+        // --- Targeting Logic (Handles when to start/stop the AttackLoop) ---
+
+
 
         public void HandleTriggerEnter(Collider other)
+
         {
-            Debug.Log($"[ENEMY] Trigger hit: {other.gameObject.name}, layer={other.gameObject.layer}");
 
             if (!IsServer) return;
+
             if (((1 << other.gameObject.layer) & playerLayer) == 0) return;
 
+
+
             var netObj = other.GetComponentInParent<NetworkObject>();
+
             if (netObj != null && netObj.TryGetComponent(out Player player))
+
             {
+
                 bool acquireNewTarget = targetPlayer == null || !targetPlayer.IsAlive.Value;
 
+
+
                 if (acquireNewTarget)
+
                 {
+
                     targetPlayer = player;
 
-                    // **Start the attack only if it wasn't already running**
+                    // Start the attack loop if a valid target is found
+
                     if (attackCoroutine == null)
+
                         attackCoroutine = StartCoroutine(AttackLoop());
+
                 }
+
             }
+
         }
+
+
 
         public void HandleTriggerExit(Collider other)
+
         {
+
             if (!IsServer) return;
 
+
+
             var netObj = other.GetComponentInParent<NetworkObject>();
+
             if (netObj != null && netObj.TryGetComponent(out Player player))
+
             {
+
                 if (player == targetPlayer)
+
                 {
+
                     StopAttacking();
+
                 }
+
             }
+
         }
+
+
+
+        // --- Firing Loop (3-second interval) ---
+
 
 
         private IEnumerator AttackLoop()
+
         {
-            yield return new WaitForSeconds(1f); // Initial delay before the first attack
+
+            yield return new WaitForSeconds(1f); // Initial delay before the first shot
+
+
 
             while (targetPlayer != null)
+
             {
-                // Check if the current target is still valid (alive and in range)
+
                 if (targetPlayer.IsAlive.Value)
+
                 {
-                    Attack(targetPlayer);
+
+                    FireProjectile();
+
                 }
+
                 else
+
                 {
-                    // Target died, stop the loop and nullify target
+
+                    // Target died, stop shooting
+
                     StopAttacking();
+
                     yield break;
+
                 }
 
-                yield return new WaitForSeconds(attackDelay);
 
-                // Re-evaluate the target's presence/state here if needed, 
-                // but relying on HandleTriggerExit for range and the check above for state is simpler.
+
+                // Wait 3 seconds before the next shot
+
+                yield return new WaitForSeconds(fireRate);
+
             }
+
+
 
             StopAttacking();
+
         }
 
 
-        private void Attack(Player player)
+
+        private void FireProjectile()
+
         {
-            if (player != null && player.IsAlive.Value)
+
+            if (!IsServer || projectilePrefab == null || shootingPosition == null) return;
+
+
+
+            // 1. Calculate direction towards the target
+
+            Vector3 directionToTarget = (targetPlayer.transform.position - shootingPosition.position).normalized;
+
+            Quaternion rotation = Quaternion.LookRotation(directionToTarget);
+
+
+
+            // 2. Instantiate and Network Spawn
+
+            GameObject projectileObject = Instantiate(projectilePrefab, shootingPosition.position, rotation);
+
+
+
+            if (projectileObject.TryGetComponent(out NetworkObject netObject))
+
             {
-                player.TakeDamageServerRpc(attackDamage);
+
+                netObject.Spawn();
+
             }
+
+
+
+            // 3. Apply non-gravity velocity
+
+            if (projectileObject.TryGetComponent(out Rigidbody rb))
+
+            {
+
+                rb.linearVelocity = directionToTarget * projectileSpeed;
+
+            }
+
         }
+
 
 
         private void StopAttacking()
+
         {
+
             if (attackCoroutine != null)
+
             {
+
                 StopCoroutine(attackCoroutine);
+
                 attackCoroutine = null;
+
             }
+
             targetPlayer = null;
+
         }
+
+
+
+        // --- Damage and Knockback Logic (Kept from original) ---
+
+
 
         public void TakeDamage(float amount)
+
         {
+
             if (!IsServer) return;
 
+
+
             health -= amount;
+
             if (health <= 0)
+
                 Die();
+
         }
+
 
 
         private void Die()
+
         {
+
             if (!IsServer) return;
-            Destroy(gameObject);
-        }
-        public void Knockback(Vector3 force, float duration = 0.05f)
-        {
-            StopAllCoroutines();
-            StartCoroutine(KnockbackRoutine(force, duration));
+
+            NetworkObject.Despawn(destroy: true);
+
         }
 
-        private IEnumerator KnockbackRoutine(Vector3 force, float duration)
+
+
+        public void Knockback(Vector3 force, float duration = 0.05f)
+
         {
+
+            StopAllCoroutines();
+
+            StartCoroutine(KnockbackRoutine(force, duration));
+
+        }
+
+
+
+        private IEnumerator KnockbackRoutine(Vector3 force, float duration)
+
+        {
+
             if (enemyRigidBody != null)
             {
                 // Clear existing movement before applying force
@@ -160,6 +348,9 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 enemyRigidBody.linearVelocity = Vector3.zero;
                 enemyRigidBody.angularVelocity = Vector3.zero;
             }
+
         }
+
     }
+
 }

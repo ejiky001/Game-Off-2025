@@ -16,9 +16,9 @@ GameObject:
   - component: {fileID: 6497356233877115991}
   - component: {fileID: 3019355649232334853}
   - component: {fileID: 4098156649808572514}
-  - component: {fileID: 5708532924881430192}
+  - component: {fileID: -4567161378071307360}
   m_Layer: 8
-  m_Name: enemy roll
+  m_Name: shootingEnemy
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -34,10 +34,11 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -4.28, y: 1.15, z: -0.37367725}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1, y: 2, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8913442053308021226}
+  - {fileID: 7522926672932663403}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &5952737964219105268
@@ -126,7 +127,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 2887436442
+  GlobalObjectIdHash: 2271833170
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 3
@@ -229,7 +230,7 @@ MonoBehaviour:
   UseRigidBodyForMotion: 0
   AutoUpdateKinematicState: 1
   AutoSetKinematicOnDespawn: 1
---- !u!114 &5708532924881430192
+--- !u!114 &-4567161378071307360
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -238,18 +239,20 @@ MonoBehaviour:
   m_GameObject: {fileID: 944409570124378260}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 52bfa73aaaee2224e90c1f43212bbd9e, type: 3}
+  m_Script: {fileID: 11500000, guid: 0094fc1b136e48645844d11fad1268ac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
   health: 5
-  moveSpeed: 2
-  attackDamage: 1
-  attackDelay: 5
   playerLayer:
     serializedVersion: 2
     m_Bits: 128
   detectionTrigger: {fileID: 8737663097016441323}
+  fireRate: 3
+  projectilePrefab: {fileID: 4991801947115010173, guid: d9f4cf29765143b4a9d3654290da29b6, type: 3}
+  shootingPosition: {fileID: 7522926672932663403}
+  projectileSpeed: 15
+  moveSpeed: 2
   enemyRigidBody: {fileID: 6497356233877115991}
 --- !u!1 &4539619924332967095
 GameObject:
@@ -302,5 +305,36 @@ SphereCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Radius: 4
+  m_Radius: 5
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &8749263365956133036
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7522926672932663403}
+  m_Layer: 8
+  m_Name: shootingbox
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7522926672932663403
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8749263365956133036}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0.807}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2114064668647481289}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

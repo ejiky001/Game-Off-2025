@@ -22,11 +22,6 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         public override void OnNetworkSpawn()
         {
-            if (enemyRigidBody != null)
-            {
-                enemyRigidBody.isKinematic = true;
-                enemyRigidBody.useGravity = false;
-            }
         }
 
 
@@ -146,14 +141,23 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         private IEnumerator KnockbackRoutine(Vector3 force, float duration)
         {
-            enemyRigidBody.isKinematic = false;   // allow physics temporarily
-            enemyRigidBody.AddForce(force, ForceMode.Impulse);
+            if (enemyRigidBody != null)
+            {
+                // Clear existing movement before applying force
+                enemyRigidBody.linearVelocity = Vector3.zero;
+                enemyRigidBody.angularVelocity = Vector3.zero;
+
+                enemyRigidBody.AddForce(force, ForceMode.Impulse);
+            }
 
             yield return new WaitForSeconds(duration);
 
-            enemyRigidBody.linearVelocity = Vector3.zero;   // stop sliding
-            enemyRigidBody.angularVelocity = Vector3.zero;
-            enemyRigidBody.isKinematic = true;   // freeze movement again
+            if (enemyRigidBody != null)
+            {
+                // Stop the momentum after the knockback duration
+                enemyRigidBody.linearVelocity = Vector3.zero;
+                enemyRigidBody.angularVelocity = Vector3.zero;
+            }
         }
     }
 }

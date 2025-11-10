@@ -614,6 +614,8 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             rbProj.linearVelocity = Vector3.zero;
             rbProj.AddForce(direction.normalized * shootForce, ForceMode.Impulse);
         }
-        #endregion
-    }
+
+       
+        #endregion
+    }
 }
