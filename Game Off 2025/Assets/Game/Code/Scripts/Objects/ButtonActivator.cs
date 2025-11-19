@@ -1,18 +1,17 @@
 using UnityEngine;
 using Unity.Netcode;
 using System.Collections.Generic;
-using System.Linq; // Required for using the .All() extension method
 
 namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 {
     // This script should be placed on the GameObject you want to disable 
     // when all required buttons are pressed.
-    public class RequiredButtonsActivator : NetworkBehaviour
+    public class ButtonActivator : NetworkBehaviour
     {
         [Header("Required Buttons")]
-        [Tooltip("Drag all required Button scripts here.")]
-        // The list of buttons that must all be pressed to disable this object.
-        public List<Button> RequiredButtons = new List<Button>();
+        [Tooltip("Drag all required Button scripts (including color-specific ones) here.")]
+        // We use NetworkBehaviour as the base type to hold all different derived button types.
+        public List<NetworkBehaviour> RequiredButtons = new List<NetworkBehaviour>();
 
         [Header("Settings")]
         [Tooltip("If checked, the object will start disabled.")]
@@ -31,21 +30,37 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         {
             if (!IsServer)
             {
-                // Only the server needs to monitor the button states and disable the object.
-                // Clients will simply observe the disabled state via network synchronization.
+                // Only the server monitors the button states and controls the object's active state.
                 return;
             }
 
-            // Register for the value change event on all required buttons.
-            // This is more efficient than checking in Update().
-            foreach (var button in RequiredButtons)
+            // 1. Register for the value change event on all required buttons.
+            foreach (var buttonScript in RequiredButtons)
             {
-                // Subscribe to the NetworkVariable's ValueChanged event.
-                // We'll use the same function to handle any button's state change.
-                button.IsPressed.OnValueChanged += CheckAllButtonsStatus;
+                // Safely handle each button type and subscribe to its IsPressed NetworkVariable.
+                if (buttonScript is Button originalButton)
+                {
+                    originalButton.IsPressed.OnValueChanged += CheckAllButtonsStatus;
+                }
+                else if (buttonScript is BlueButton blueButton)
+                {
+                    blueButton.IsPressed.OnValueChanged += CheckAllButtonsStatus;
+                }
+                else if (buttonScript is RedButton redButton)
+                {
+                    redButton.IsPressed.OnValueChanged += CheckAllButtonsStatus;
+                }
+                else if (buttonScript is GreenButton greenButton)
+                {
+                    greenButton.IsPressed.OnValueChanged += CheckAllButtonsStatus;
+                }
+                else
+                {
+                    Debug.LogError($"Activator on {gameObject.name} contains an unhandled script type: {buttonScript.GetType().Name}. Please ensure all button scripts expose 'public NetworkVariable<bool> IsPressed'.");
+                }
             }
 
-            // Perform an initial check in case buttons are already pressed on spawn
+            // 2. Perform an initial check in case buttons are already pressed on spawn
             CheckAllButtonsStatus(false, false);
         }
 
@@ -56,43 +71,77 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 return;
             }
 
-            // Unsubscribe to prevent memory leaks when the object is destroyed.
-            foreach (var button in RequiredButtons)
+            // Unsubscribe to prevent memory leaks.
+            foreach (var buttonScript in RequiredButtons)
             {
-                // Safely unsubscribe only if the button is not null (hasn't been destroyed first).
-                if (button != null)
+                if (buttonScript == null) continue;
+
+                if (buttonScript is Button originalButton)
                 {
-                    button.IsPressed.OnValueChanged -= CheckAllButtonsStatus;
+                    originalButton.IsPressed.OnValueChanged -= CheckAllButtonsStatus;
+                }
+                else if (buttonScript is BlueButton blueButton)
+                {
+                    blueButton.IsPressed.OnValueChanged -= CheckAllButtonsStatus;
+                }
+                else if (buttonScript is RedButton redButton)
+                {
+                    redButton.IsPressed.OnValueChanged -= CheckAllButtonsStatus;
+                }
+                else if (buttonScript is GreenButton greenButton)
+                {
+                    greenButton.IsPressed.OnValueChanged -= CheckAllButtonsStatus;
                 }
             }
         }
 
-        // The callback function for when any button's IsPressed state changes.
-        // The arguments (oldValue, newValue) are required for the OnValueChanged delegate 
-        // but we don't need to use them here.
+        // The central logic that runs whenever ANY button's state changes.
         private void CheckAllButtonsStatus(bool oldValue, bool newValue)
         {
-            // This logic MUST only run on the server.
             if (!IsServer)
             {
                 return;
             }
 
-            // Check if ALL buttons in the list are currently pressed (IsPressed.Value == true).
-            // The .All() extension method from System.Linq is a very clean way to do this.
-            bool allPressed = RequiredButtons.All(button => button.IsPressed.Value);
+            // Check if ALL buttons in the list are currently pressed.
+            bool allPressed = true;
+            foreach (var buttonScript in RequiredButtons)
+            {
+                bool isButtonPressed = false;
 
-            // The target state is disabled (false) if all buttons are pressed.
+                // Safely cast and get the current value of IsPressed for the specific type.
+                if (buttonScript is Button originalButton)
+                {
+                    isButtonPressed = originalButton.IsPressed.Value;
+                }
+                else if (buttonScript is BlueButton blueButton)
+                {
+                    isButtonPressed = blueButton.IsPressed.Value;
+                }
+                else if (buttonScript is RedButton redButton)
+                {
+                    isButtonPressed = redButton.IsPressed.Value;
+                }
+                else if (buttonScript is GreenButton greenButton)
+                {
+                    isButtonPressed = greenButton.IsPressed.Value;
+                }
+
+                if (!isButtonPressed)
+                {
+                    allPressed = false;
+                    break; // Found one unpressed button, no need to check the rest.
+                }
+            }
+
+            // We disable the object if all buttons are pressed.
             bool targetActiveState = !allPressed;
 
-            // Only change the state if it's different from the current state.
+            // Apply the change only if necessary.
             if (gameObject.activeSelf != targetActiveState)
             {
-                Debug.Log($"All required buttons are {(allPressed ? "PRESSED" : "NOT PRESSED")}. Disabling object: {!allPressed}");
-
-                // Set the active state. This change is automatically synchronized by Netcode 
-                // for the root GameObject of a NetworkObject.
                 gameObject.SetActive(targetActiveState);
+                Debug.Log($"Activator: All buttons pressed? {allPressed}. Object is now Active: {targetActiveState}");
             }
         }
     }
