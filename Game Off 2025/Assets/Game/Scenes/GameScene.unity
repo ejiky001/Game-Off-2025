@@ -12853,6 +12853,10 @@ PrefabInstance:
       propertyPath: GlobalObjectIdHash
       value: 673720023
       objectReference: {fileID: 0}
+    - target: {fileID: 2960774217484195187, guid: faab33bf0d62da84091381baffa068ef, type: 3}
+      propertyPath: InScenePlacedSourceGlobalObjectIdHash
+      value: 1769377404
+      objectReference: {fileID: 0}
     - target: {fileID: 4725484934386102829, guid: faab33bf0d62da84091381baffa068ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: -106.96649
@@ -17906,7 +17910,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!33 &7522823834846208489
 MeshFilter:
   m_ObjectHideFlags: 0

@@ -18,7 +18,7 @@ GameObject:
   - component: {fileID: 3050558961392526033}
   m_Layer: 9
   m_Name: sininenlaatikko
-  m_TagString: Untagged
+  m_TagString: BlueBox
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
