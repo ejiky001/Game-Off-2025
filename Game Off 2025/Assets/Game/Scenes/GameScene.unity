@@ -1216,71 +1216,6 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
---- !u!1001 &170687258
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 2799478566562796822, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
-      propertyPath: m_Name
-      value: button
-      objectReference: {fileID: 0}
-    - target: {fileID: 5611459336915576425, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -83.63551
-      objectReference: {fileID: 0}
-    - target: {fileID: 5611459336915576425, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: -4.637191
-      objectReference: {fileID: 0}
-    - target: {fileID: 5611459336915576425, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -334.28516
-      objectReference: {fileID: 0}
-    - target: {fileID: 5611459336915576425, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 5611459336915576425, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5611459336915576425, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5611459336915576425, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5611459336915576425, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5611459336915576425, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5611459336915576425, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6217813609282245309, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
-      propertyPath: GlobalObjectIdHash
-      value: 3630576141
-      objectReference: {fileID: 0}
-    - target: {fileID: 6217813609282245309, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
-      propertyPath: InScenePlacedSourceGlobalObjectIdHash
-      value: 3943581760
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 7de7fad809ca1334c919c04dea0d8088, type: 3}
 --- !u!1 &178521240
 GameObject:
   m_ObjectHideFlags: 0
@@ -2150,8 +2085,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
   RequiredButtons:
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 2127154696}
+  - {fileID: 1512127619}
   startDisabled: 0
 --- !u!114 &219408467
 MonoBehaviour:
@@ -2167,8 +2102,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
   RequiredButtons:
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 2059340294}
+  - {fileID: 1242773447}
   startDisabled: 0
 --- !u!114 &219408468
 MonoBehaviour:
@@ -5953,9 +5888,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
-  boxLayer:
-    serializedVersion: 2
-    m_Bits: 0
   IsPressed:
     m_InternalValue: 0
 --- !u!114 &654697691
@@ -5972,8 +5904,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
   RequiredButtons:
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 533535305}
+  - {fileID: 1405155469}
   startDisabled: 0
 --- !u!1 &656909792
 GameObject:
@@ -9714,9 +9646,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
-  boxLayer:
-    serializedVersion: 2
-    m_Bits: 0
   IsPressed:
     m_InternalValue: 0
 --- !u!1001 &1264580206
@@ -12121,9 +12050,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
-  boxLayer:
-    serializedVersion: 2
-    m_Bits: 0
   IsPressed:
     m_InternalValue: 0
 --- !u!65 &1505518182
@@ -12516,9 +12442,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
-  boxLayer:
-    serializedVersion: 2
-    m_Bits: 0
   IsPressed:
     m_InternalValue: 0
 --- !u!1001 &1528804614
@@ -16414,9 +16337,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
-  boxLayer:
-    serializedVersion: 2
-    m_Bits: 0
   IsPressed:
     m_InternalValue: 0
 --- !u!114 &2060197861
@@ -17898,9 +17818,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
-  boxLayer:
-    serializedVersion: 2
-    m_Bits: 0
   IsPressed:
     m_InternalValue: 0
 --- !u!114 &2129638080
@@ -25026,4 +24943,3 @@ SceneRoots:
   - {fileID: 2054754702}
   - {fileID: 1539987728}
   - {fileID: 1135268542}
-  - {fileID: 170687258}
