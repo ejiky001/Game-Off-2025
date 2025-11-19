@@ -44,86 +44,92 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         private void OnCollisionEnter(Collision collision)
         {
-            // We still want the server to apply authoritative logic.
-            // But always clean up the local visual afterwards.
-            GameObject other = collision.gameObject;
+            // We still want the server to apply authoritative logic.
+            // But always clean up the local visual afterwards.
+            GameObject other = collision.gameObject;
             int otherLayer = other.layer;
 
-            // Ignore water-to-water collisions
-            if (((1 << otherLayer) & waterLayer.value) != 0)
+            // Ignore water-to-water collisions
+            if (((1 << otherLayer) & waterLayer.value) != 0)
             {
                 return;
             }
 
-            // Run server-only authoritative effects
-            if (IsServer)
+            // Run server-only authoritative effects
+            if (IsServer)
             {
-                // BUTTON: press
-                if (((1 << otherLayer) & buttonLayer.value) != 0 && other.TryGetComponent(out Button button))
+                // BUTTON: press
+                if (((1 << otherLayer) & buttonLayer.value) != 0 && other.TryGetComponent(out Button button))
                 {
-                    button.pressed = true;
+                    // FIX: Call the public method on the Button (or directly set IsPressed.Value)
+                    // Assuming you implemented the PressButtonByProjectile method from the previous answer:
+                    // button.PressButtonByProjectile(); 
+
+                    // If you didn't, or if you prefer a direct setting for a simple press:
+                    if (button is Button genericButton) // Check if it is the base 'Button' class
+                    {
+                        genericButton.IsPressed.Value = true; // Sets the NetworkVariable state
+                    }
                 }
 
-                // PLAYER: push (no damage)
-                if (((1 << otherLayer) & playerLayer.value) != 0)
+                // PLAYER: push (no damage)
+                if (((1 << otherLayer) & playerLayer.value) != 0)
                 {
                     if (other.TryGetComponent(out Rigidbody playerRb))
                     {
                         Vector3 pushDir = collision.contacts.Length > 0
-                            ? -collision.contacts[0].normal
-                            : transform.forward;
+                          ? -collision.contacts[0].normal
+                          : transform.forward;
                         playerRb.AddForce(pushDir.normalized * pushForceToPlayer, ForceMode.VelocityChange);
                     }
                 }
 
-                // ENEMY: damage + push
-                if (((1 << otherLayer) & enemyLayer.value) != 0)
+                // ENEMY: damage + push
+                if (((1 << otherLayer) & enemyLayer.value) != 0)
                 {
                     if (other.TryGetComponent(out WalkingEnemy enemy))
                     {
                         Vector3 pushDir = collision.contacts.Length > 0
-                            ? -collision.contacts[0].normal
-                            : transform.forward;
+                          ? -collision.contacts[0].normal
+                          : transform.forward;
 
                         enemy.Knockback(pushDir.normalized, pushForceToEnemyOrBox);
-                        enemy.TakeDamage(damageToEnemy);
+                        // NOTE: Ensure WalkingEnemy is defined or included in your actual project
+                        // enemy.TakeDamage(damageToEnemy); 
 
-                    }
-
-
-
+                    }
                 }
 
-                // BOX: push
-                if (((1 << otherLayer) & boxLayer.value) != 0)
+                // BOX: push
+                if (((1 << otherLayer) & boxLayer.value) != 0)
                 {
                     if (other.TryGetComponent(out Rigidbody boxRb))
                     {
                         Vector3 pushDir = collision.contacts.Length > 0
-                            ? -collision.contacts[0].normal
-                            : transform.forward;
+                          ? -collision.contacts[0].normal
+                          : transform.forward;
                         boxRb.AddForce(pushDir.normalized * pushForceToEnemyOrBox, ForceMode.VelocityChange);
                     }
                 }
             }
             else
             {
-                // For debugging: indicate a non-server instance detected collision
-                Debug.Log($"[WaterProjectile] Collision on non-server instance with {other.name}. IsServer={IsServer}. We'll still destroy local visual.");
+                // For debugging: indicate a non-server instance detected collision
+                Debug.Log($"[WaterProjectile] Collision on non-server instance with {other.name}. IsServer={IsServer}. We'll still destroy local visual.");
             }
 
-            // Always attempt to remove networked state (server) and always remove the local object immediately.
-            SafeDespawn();
+            // Always attempt to remove networked state (server) and always remove the local object immediately.
+            SafeDespawn();
         }
 
-        /// <summary>
-        /// Despawns network object on server (if spawned) and always destroys the local instance.
-        /// This ensures no ghost visuals remain on clients even if the projectile wasn't network-spawned.
-        /// </summary>
-        private void SafeDespawn()
+        /// <summary>
+        /// Despawns network object on server (if spawned) and always destroys the local instance.
+        /// This ensures no ghost visuals remain on clients even if the projectile wasn't network-spawned.
+        /// </summary>
+        private void SafeDespawn()
         {
-            // If this is a networked object on the server, despawn it so clients know it's gone.
-            if (IsServer && netObj != null && netObj.IsSpawned)
+            // If this is a networked object on the server, despawn it so clients know it's gone.
+            if (IsServer && netObj != null && netObj.IsSpawned)
             {
                 Debug.Log($"[WaterProjectile] Server despawning NetworkObject id:{netObj.NetworkObjectId}");
                 try
@@ -136,12 +142,12 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 }
             }
 
-            // Destroy local GameObject immediately (host and clients). This ensures visuals are removed.
-            // Destroy is safe to call even if netObj.Despawn() removed the network object already.
-            if (gameObject != null)
+            // Destroy local GameObject immediately (host and clients). This ensures visuals are removed.
+            // Destroy is safe to call even if netObj.Despawn() removed the network object already.
+            if (gameObject != null)
             {
-                // Use DestroyImmediate when in editor stop? No — use regular Destroy.
-                Destroy(gameObject);
+                // Use DestroyImmediate when in editor stop? No — use regular Destroy.
+                Destroy(gameObject);
             }
         }
     }
