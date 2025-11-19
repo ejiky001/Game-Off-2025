@@ -3,25 +3,34 @@ using Unity.Netcode;
 
 namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 {
-    
-    public class Button : NetworkBehaviour
+    public class BlueButton : NetworkBehaviour
     {
         [Header("Button Settings")]
-        [Tooltip("Layer of objects that can press the button (e.g., 'Box').")]
+        [Tooltip("Layer of objects that must press the button (e.g., 'Box').")]
         [SerializeField] private LayerMask boxLayer;
 
-        
+        // The specific tag this button accepts.
+        private const string RequiredTag = "BlueBox";
+
         public NetworkVariable<bool> IsPressed = new NetworkVariable<bool>(false);
 
         private int currentBoxCount = 0;
-        internal bool pressed;
 
-        private bool IsBox(Collider other)
+        /// <summary>
+        /// Checks if the colliding object satisfies both the required Box Layer and the BlueBox Tag.
+        /// </summary>
+        private bool IsRequiredBox(Collider other)
         {
-            return ((1 << other.gameObject.layer) & boxLayer) != 0;
+            // 1. Check Layer: Must be on the specified boxLayer
+            bool hasBoxLayer = ((1 << other.gameObject.layer) & boxLayer) != 0;
+
+            // 2. Check Tag: Must have the specific color tag ("BlueBox")
+            bool hasColorTag = other.CompareTag(RequiredTag);
+
+            return hasBoxLayer && hasColorTag;
         }
 
-       
+
         private void OnTriggerEnter(Collider other)
         {
             if (!IsServer)
@@ -29,7 +38,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 return;
             }
 
-            if (IsBox(other))
+            if (IsRequiredBox(other))
             {
                 currentBoxCount++;
 
@@ -40,7 +49,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             }
         }
 
-       
+
         private void OnTriggerExit(Collider other)
         {
             if (!IsServer)
@@ -48,9 +57,9 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 return;
             }
 
-            if (IsBox(other))
+            if (IsRequiredBox(other))
             {
-                currentBoxCount = Mathf.Max(0, currentBoxCount - 1); 
+                currentBoxCount = Mathf.Max(0, currentBoxCount - 1);
 
                 if (currentBoxCount == 0 && IsPressed.Value)
                 {
