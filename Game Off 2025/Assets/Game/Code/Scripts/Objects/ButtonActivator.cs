@@ -4,30 +4,41 @@ using System.Collections.Generic;
 
 namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 {
-    // This script should be placed on the GameObject you want to disable 
-    // when all required buttons are pressed.
+    // This script should be placed on a control GameObject (e.g., an 'Activator') 
+    // to manage the enabled/disabled state of a TARGET object.
     public class ButtonActivator : NetworkBehaviour
     {
+        [Header("Target Object")]
+        [Tooltip("Drag the GameObject that should be enabled/disabled here.")]
+        // *** ADDED THIS LINE ***
+        public GameObject TargetObject;
+
         [Header("Required Buttons")]
         [Tooltip("Drag all required Button scripts (including color-specific ones) here.")]
         // We use NetworkBehaviour as the base type to hold all different derived button types.
         public List<NetworkBehaviour> RequiredButtons = new List<NetworkBehaviour>();
 
         [Header("Settings")]
-        [Tooltip("If checked, the object will start disabled.")]
+        [Tooltip("If checked, the target object will start disabled.")]
         [SerializeField] private bool startDisabled = false;
 
         private void Start()
         {
-            // Optional: Start the GameObject disabled.
-            if (startDisabled)
+            // Optional: Start the target GameObject disabled.
+            if (startDisabled && TargetObject != null) // *** MODIFIED: Check TargetObject
             {
-                gameObject.SetActive(false);
+                TargetObject.SetActive(false); // *** MODIFIED: Use TargetObject
             }
         }
 
         public override void OnNetworkSpawn()
         {
+            if (TargetObject == null) // *** ADDED: Safety check for the target
+            {
+                Debug.LogError($"TargetObject is not assigned on {gameObject.name}. Cannot manage active state.");
+                return;
+            }
+
             if (!IsServer)
             {
                 // Only the server monitors the button states and controls the object's active state.
@@ -37,7 +48,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
             // 1. Register for the value change event on all required buttons.
             foreach (var buttonScript in RequiredButtons)
             {
-                // Safely handle each button type and subscribe to its IsPressed NetworkVariable.
+                // ... (Subscription logic remains the same) ...
                 if (buttonScript is Button originalButton)
                 {
                     originalButton.IsPressed.OnValueChanged += CheckAllButtonsStatus;
@@ -71,7 +82,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 return;
             }
 
-            // Unsubscribe to prevent memory leaks.
+            // ... (Unsubscription logic remains the same) ...
             foreach (var buttonScript in RequiredButtons)
             {
                 if (buttonScript == null) continue;
@@ -98,7 +109,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         // The central logic that runs whenever ANY button's state changes.
         private void CheckAllButtonsStatus(bool oldValue, bool newValue)
         {
-            if (!IsServer)
+            if (!IsServer || TargetObject == null) // *** MODIFIED: Check TargetObject again
             {
                 return;
             }
@@ -110,6 +121,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 bool isButtonPressed = false;
 
                 // Safely cast and get the current value of IsPressed for the specific type.
+                // ... (Button state check logic remains the same) ...
                 if (buttonScript is Button originalButton)
                 {
                     isButtonPressed = originalButton.IsPressed.Value;
@@ -134,14 +146,17 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 }
             }
 
-            // We disable the object if all buttons are pressed.
+            // We disable the object if all buttons are pressed (targetActiveState = false).
+            // We enable the object if at least one button is unpressed (targetActiveState = true).
             bool targetActiveState = !allPressed;
 
             // Apply the change only if necessary.
-            if (gameObject.activeSelf != targetActiveState)
+            // *** MODIFIED: Use TargetObject
+            if (TargetObject.activeSelf != targetActiveState)
             {
-                gameObject.SetActive(targetActiveState);
-                Debug.Log($"Activator: All buttons pressed? {allPressed}. Object is now Active: {targetActiveState}");
+                // *** MODIFIED: Use TargetObject
+                TargetObject.SetActive(targetActiveState);
+                Debug.Log($"Activator: All buttons pressed? {allPressed}. Target Object is now Active: {targetActiveState}");
             }
         }
     }
