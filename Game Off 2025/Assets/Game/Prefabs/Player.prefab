@@ -190,12 +190,13 @@ MonoBehaviour:
     m_InternalValue: 10
   NetworkRotation:
     m_InternalValue: {x: 0, y: 0, z: 0, w: 1}
+  IsAlive:
+    m_InternalValue: 1
   playerCamera: {fileID: 2435745654207090741}
   audioListener: {fileID: 6571228991956225365}
   mouseSensitivity: 0.25
   maxHealth: 10
   currentHealth: 0
-  isAlive: 1
   outOfCombatRegenDelay: 5
   timeSinceLastDamage: 0
   healthRegenRate: 5
@@ -206,7 +207,7 @@ MonoBehaviour:
   shootForce: 5
   fireRate: 0.1
   moveSpeed: 10
-  jumpForce: 10
+  jumpForce: 11
   fallMultiplier: 2.5
   ascendMultiplier: 2
   groundLayer:

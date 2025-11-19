@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 2455801606726249191}
   - component: {fileID: -3969913147909907090}
   - component: {fileID: -7143630336314552395}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: elevator
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -198,4 +198,4 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   pointA: {fileID: 7169271757263909152, guid: fb405301a2c3626469526fadea45ad69, type: 3}
   pointB: {fileID: 6030105854173358349, guid: 4c00c0593b4747c4bbfaf598e096dfe6, type: 3}
-  speed: 1
+  speed: 2

@@ -13,7 +13,7 @@ public class ElevatorPlatform : NetworkBehaviour
     [Tooltip("The ending point (empty GameObject transform)")]
     [SerializeField] private Transform pointB;
     [Tooltip("Speed of the elevator movement.")]
-    [SerializeField] private float speed = 1.0f;
+    [SerializeField] private float speed = 2.0f;
 
     // Used to track the time for the smooth PingPong movement
     private float startTime;
