@@ -54,7 +54,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
         private Vector2 moveInput;
 
         // --- Jumping ---
-        public float jumpForce = 10f;
+        public float jumpForce = 11f;
         public float fallMultiplier = 2.5f;
         public float ascendMultiplier = 2f;
         private bool isGrounded = true;
