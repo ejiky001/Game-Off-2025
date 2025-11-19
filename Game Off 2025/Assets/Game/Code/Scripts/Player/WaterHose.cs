@@ -52,7 +52,11 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                     // dmg Enemy
                     if (((1 << layer) & enemyLayer) != 0 && obj.TryGetComponent<WalkingEnemy>(out WalkingEnemy enemy))
                     {
-                        enemy.TakeDamage(damagePerSecond);
+                        // Ensure this logic runs only on the server to prevent race conditions
+                        if (IsServer)
+                        {
+                            enemy.TakeDamage(damagePerSecond);
+                        }
                     }
                 }
             }
@@ -60,7 +64,7 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
 
         void OnParticleCollision(GameObject other)
         {
-            if (!IsServer) return;
+            if (!IsServer) return; // Only run authoritative logic on the server
 
             int count = ps.GetCollisionEvents(other, collisionEvents);
 
@@ -94,13 +98,19 @@ namespace Unity.Multiplayer.Center.NetcodeForGameObjects
                 }
             }
 
-            //button toggle
+            // button toggle
             if (((1 << otherLayer) & buttonLayer) != 0)
             {
-                Button button = other.GetComponent<Button>();
-                if (button != null)
+                // Note: WaterHose can affect the generic 'Button' and the colored ones (BlueButton, RedButton, etc.).
+                // If you want the water to press ALL buttons, use the base 'Button' component.
+                if (other.TryGetComponent<Button>(out Button button))
                 {
-                    button.pressed = true;
+                    // FIX: The 'pressed' variable was removed. Use the NetworkVariable property instead.
+                    // This must be set on the server (checked by IsServer check at top of method).
+                    if (button.IsPressed.Value == false)
+                    {
+                        button.IsPressed.Value = true;
+                    }
                 }
             }
         }
