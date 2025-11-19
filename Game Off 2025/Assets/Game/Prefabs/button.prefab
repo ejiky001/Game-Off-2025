@@ -149,7 +149,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
-  pressed: 0
+  boxLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  IsPressed:
+    m_InternalValue: 0
 --- !u!114 &-7649462091123764598
 MonoBehaviour:
   m_ObjectHideFlags: 0
